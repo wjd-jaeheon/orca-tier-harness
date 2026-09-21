@@ -15,6 +15,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - orchestrator는 코드를 직접 수정하지 않고 분석, 분배, 대기, 보고만 합니다. Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
 - 리뷰어는 구현자와 다른 모델이어야 한다는 검증이 붙습니다.
+- worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(구현, review, qa, approve)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.
 
 ## 요구 사항

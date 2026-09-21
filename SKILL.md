@@ -128,7 +128,7 @@ codex를 쓰는 역할이 하나라도 있으면, 이 저장소에서 codex를 �
 ### 3. 분석
 
 config의 docs를 전부 읽고 하나의 Task 목록을 만든다. 문서 제목은 첫 H1이고, 없으면 파일명이다. 문서끼리 요구가 충돌하면 Task를 만들기 전에 사용자에게 묻는다. Task 하나는 worker 하나가 한 번에 끝낼 수 있는 단위다.
-각 Task spec은 Source(출처 문서 경로) / Target / Change / Constraints / Ownership(수정 가능한 파일) / Acceptance(검증 명령)를 반드시 포함하고, 마지막에 이 문장을 그대로 넣는다: "완료 시 Ownership 파일만 `git commit -m '<task_id>: <title>'`으로 커밋한다. index.lock 오류면 몇 초 뒤 다시 시도한다. 커밋 sha를 worker_done body에 적는다."
+각 Task spec은 Source(출처 문서 경로) / Target / Change / Constraints / Ownership(수정 가능한 파일) / Acceptance(검증 명령)를 반드시 포함하고, 마지막에 7절의 구현 템플릿을 그대로 붙인다.
 spec에 tier와 모델 이름은 적지 않는다.
 
 의존 관계: B가 A의 결과를 쓰거나 A와 같은 파일을 수정하면 B는 A에 의존한다. 문서가 달라도 같다. 파일이 겹치는데 논리 순서가 없으면 tier가 낮은 쪽을 앞에 둔다. 겹치지 않으면 순서가 없다. 의존하는 Task는 4절에서 만들지 않고, 선행 Task 전부의 review가 `succeeded`된 시점에 `--deps '["<선행 task_id>"]'`로 task-create 한다. 그래야 재작업 중인 Task와 같은 파일을 동시에 건드리지 않는다.
@@ -214,12 +214,58 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다.
 
 **implement → review → qa → approve** 순서로 흐른다. 각 단계는 앞 단계 Task를 `--deps`로 건다.
 
-1. **review** (구현 Task마다 1개, `review` 역할): 구현 Task가 `succeeded`면 만든다. spec에 구현 Task의 spec 전문과 커밋 sha를 넣고 "코드를 수정하지 말고 `git show <sha>`를 위 spec과 대조해 검토하라. 지적 사항을 `.harness/reports/<구현 task_id>-review.md`에 쓰고 worker_done의 `--report-path`로 제출하라. 수정이 필요하면 `--outcome failed`"를 넣는다.
+1. **review** (구현 Task마다 1개, `review` 역할): 구현 Task가 `succeeded`면 만든다. spec에 구현 Task의 spec 전문과 커밋 sha를 넣고 review 템플릿을 붙인다.
    `failed`면 리포트 경로를 spec에 붙인 재작업 Task를 새로 만들고 tier를 한 단계 올려 다시 투입한다. 같은 Task의 재작업은 최대 2회다. 그 뒤에는 사용자에게 올린다. 답을 기다리는 동안 그 Task는 보류하고, 그 pane에는 다른 ready Task를 넣거나 retain한다. 후속 Task는 deps 때문에 ready가 되지 않으므로 그대로 둔다. 사용자가 결정하면 재작업 Task를 만들거나, 그 Task와 후속 Task를 제외하고 진행한다.
-2. **qa** (전체 1개, `qa` 역할): 모든 review가 `succeeded`면 만든다. spec에 config의 docs 전부, 전체 테스트·빌드 명령, 수동 검증 시나리오를 넣는다. `failed`면 리포트의 항목별로 재작업 Task를 만든다.
-3. **approve** (전체 1개, `approve` 역할): qa가 `succeeded`면 만든다. spec에 config의 docs 전부와 review·qa 리포트 경로를 넣고 "문서마다 요구사항 대비 누락과 위험을 판정하라. `succeeded` = 승인"을 넣는다. `failed`면 사유별로 재작업 Task를 만들어 1번부터 반복한다.
+2. **qa** (전체 1개, `qa` 역할): 모든 review가 `succeeded`면 만든다. spec에 config의 docs 전부와 전체 테스트·빌드 명령을 넣고 qa 템플릿을 붙인다. `failed`면 리포트의 항목별로 재작업 Task를 만든다.
+3. **approve** (전체 1개, `approve` 역할): qa가 `succeeded`면 만든다. spec에 config의 docs 전부와 review·qa 리포트 경로를 넣고 approve 템플릿을 붙인다. `failed`면 사유별로 재작업 Task를 만들어 1번부터 반복한다.
 
 리포트 경로는 `.harness/reports/<구현 task_id>-review.md`, `.harness/reports/qa-<회차>.md`, `.harness/reports/approve-<회차>.md`다. 회차는 1부터 세고, qa와 approve를 새로 만들 때마다 각각 1씩 올린다. `.harness/`는 커밋하지 않는다.
+
+**역할별 spec 템플릿.** 아래 블록을 spec 끝에 그대로 붙인다. `<...>`는 orchestrator가 채운다. "묻는다"는 dispatch preamble이 알려주는 질문 방법을 뜻한다.
+
+구현:
+
+```text
+규칙
+- Ownership에 적힌 파일만 수정한다. 다른 파일이 필요하면 수정하지 말고 묻는다.
+- Change에 없는 변경은 하지 않는다. 리팩터링, 포맷 정리, 부수 개선을 하지 않는다.
+- Acceptance 명령을 실제로 실행한다. 통과시키려고 테스트나 기대값을 고치지 않는다.
+- 명세가 불명확한 지점은 추측하지 말고 묻는다.
+- 완료 시 Ownership 파일만 `git commit -m '<task_id>: <title>'`으로 커밋한다. index.lock 오류면 몇 초 뒤 다시 시도한다.
+- worker_done body에 커밋 sha, 실행한 Acceptance 명령과 출력 마지막 10줄, 하지 않은 것을 적는다.
+```
+
+review:
+
+```text
+규칙
+- 코드를 수정하지 않는다. `git show <sha>`를 위 spec과 대조한다.
+- 확인 순서: (1) Change의 각 항목이 구현됐고 Acceptance가 실제로 통과하는가(직접 실행). (2) 커밋에 Ownership 밖 파일이 있는가. (3) 새 동작에 테스트가 있고 기존 테스트를 약화시키지 않았는가. (4) 호출자, 공용 인터페이스, 데이터 경로에 회귀 위험이 있는가.
+- 지적은 `파일:줄 | blocking 또는 minor | 문제 | 수정안` 형식으로 한 줄씩 `.harness/reports/<task_id>-review.md`에 쓰고 worker_done의 --report-path로 제출한다.
+- blocking이 하나라도 있으면 --outcome failed, 없으면 succeeded. 스타일과 취향은 minor로만 적고 failed 사유로 삼지 않는다.
+```
+
+qa:
+
+```text
+규칙
+- 코드를 수정하지 않는다.
+- 전체 테스트·빌드 명령을 실제로 실행하고 출력 마지막 30줄을 리포트에 붙인다.
+- 요구사항 문서의 항목마다 수동 검증 시나리오를 하나씩 만들어 실행하고 `항목 | 시나리오 | 결과 | 근거`로 적는다.
+- 실패 항목마다 재현 절차와 관찰된 출력을 적는다.
+- 리포트는 `.harness/reports/qa-<회차>.md`에 쓰고 worker_done의 --report-path로 제출한다. 실패 항목이 하나라도 있으면 --outcome failed.
+```
+
+approve:
+
+```text
+규칙
+- 코드를 수정하지 않는다.
+- 요구사항 문서마다 항목을 표로 만들고 `항목 | 충족 또는 미충족 | 근거(커밋 sha, 리포트 경로, 테스트 출력)`를 채운다.
+- review와 qa 리포트에 해결되지 않은 blocking이나 실패 항목이 남아 있는지 확인한다.
+- 남은 위험(데이터 손실, 보안, 되돌리기 어려운 변경)을 따로 적는다.
+- 리포트는 `.harness/reports/approve-<회차>.md`에 쓰고 worker_done의 --report-path로 제출한다. 미충족이나 미해결 blocking이 하나라도 있으면 --outcome failed, 아니면 succeeded가 승인이다.
+```
 
 ### 8. 종료
 
