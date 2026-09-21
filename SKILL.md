@@ -51,11 +51,11 @@ command -v claude codex agent gemini kimi grok                                  
 | 역할         | agent  | model       | effort | 비고               |
 | ------------ | ------ | ----------- | ------ | ------------------ |
 | orchestrator | claude | fable       | xhigh  |                    |
-| impl-high    | claude | fable       | high   |                    |
-| impl-mid     | claude | opus        | medium |                    |
-| impl-low     | claude | sonnet      | low    |                    |
-| review       | codex  | gpt-6-astra | high   | 구현자와 다른 모델 |
-| qa           | claude | opus        | medium |                    |
+| impl-high    | codex  | gpt-6-astra | high   |                    |
+| impl-mid     | kimi   | kimi-k3     | -      |                    |
+| impl-low     | kimi   | kimi-k3     | -      |                    |
+| review       | claude | opus        | high   | 구현자와 다른 모델 |
+| qa           | codex  | gpt-6-astra | medium |                    |
 | approve      | codex  | gpt-6-astra | xhigh  | 최종 승인          |
 
 ## 난이도 기준
@@ -90,11 +90,11 @@ command -v claude codex agent gemini kimi grok                                  
   "test_command": "npm test",
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
-    "impl-high":    { "agent": "claude", "model": "fable",       "effort": "high" },
-    "impl-mid":     { "agent": "claude", "model": "opus",        "effort": "medium" },
-    "impl-low":     { "agent": "claude", "model": "sonnet",      "effort": "low" },
-    "review":       { "agent": "codex",  "model": "gpt-6-astra", "effort": "high" },
-    "qa":           { "agent": "claude", "model": "opus",        "effort": "medium" },
+    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "high" },
+    "impl-mid":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "-" },
+    "impl-low":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "-" },
+    "review":       { "agent": "claude", "model": "opus",        "effort": "high" },
+    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "medium" },
     "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" }
   }
 }
