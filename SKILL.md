@@ -53,10 +53,10 @@ command -v claude codex agent gemini kimi grok                                  
 | 역할         | agent  | model       | effort | 비고               |
 | ------------ | ------ | ----------- | ------ | ------------------ |
 | orchestrator | claude | fable       | xhigh  |                    |
-| impl-high    | codex  | gpt-6-astra | ultra  |                    |
+| impl-high    | codex  | gpt-6-astra | xhigh  |                    |
 | impl-mid     | kimi   | kimi-k3     | max    | 설정 파일 기본값   |
 | impl-low     | kimi   | kimi-k3     | max    | 설정 파일 기본값   |
-| review       | claude | opus        | xhigh  | 구현자와 다른 모델 |
+| review       | claude | opus        | max    | 구현자와 다른 모델 |
 | qa           | codex  | gpt-6-astra | ultra  |                    |
 | approve      | codex  | gpt-6-astra | ultra  | 최종 승인          |
 
@@ -92,10 +92,10 @@ command -v claude codex agent gemini kimi grok                                  
   "test_command": "npm test",
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
-    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "ultra" },
+    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" },
     "impl-mid":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "max" },
     "impl-low":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "max" },
-    "review":       { "agent": "claude", "model": "opus",        "effort": "xhigh" },
+    "review":       { "agent": "claude", "model": "opus",        "effort": "max" },
     "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "ultra" },
     "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "ultra" }
   }
