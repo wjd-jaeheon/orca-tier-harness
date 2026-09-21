@@ -7,12 +7,12 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 ## 구성
 
 ```text
-[orchestrator] | [high]      review / qa / approve 는 Task마다 새 탭
-               | [mid ]
+[orchestrator] | [high]      tier pane은 그 tier의 Task가 처음 생길 때 만들어지고
+               | [mid ]      review / qa / approve 는 Task마다 새 탭
                | [low ]
 ```
 
-- orchestrator는 코드를 직접 수정하지 않고 분석, 분배, 대기, 보고만 합니다.
+- orchestrator는 코드를 직접 수정하지 않고 분석, 분배, 대기, 보고만 합니다. Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
 - 리뷰어는 구현자와 다른 모델이어야 한다는 검증이 붙습니다.
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.

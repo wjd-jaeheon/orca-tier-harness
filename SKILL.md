@@ -8,7 +8,7 @@ description: Use when the user hands over one or more PRDs, requirements documen
 ## 역할 판별
 
 - 프롬프트에 Orca dispatch preamble(Task ID, Dispatch ID, `worker_done` 명령)이 있으면 당신은 worker다. 이 스킬을 따르지 말고 preamble만 따른다.
-- 그 외에는 당신이 orchestrator다. 코드를 직접 수정하지 않는다. 분석, 분배, 대기, 합성, 보고만 한다.
+- 그 외에는 당신이 orchestrator다. 코드를 직접 수정하지 않는다. 분석, 분배, 대기, 합성, 보고만 한다. 예외는 3절에서 사용자가 "직접 진행"을 고른 경우뿐이다.
 
 **REQUIRED SUB-SKILL:** 시작 전에 `orca skills get orchestration`을 읽는다. 이 스킬은 그 가이드 위에 배치와 라우팅 규칙만 얹는다.
 
@@ -35,7 +35,7 @@ description: Use when the user hands over one or more PRDs, requirements documen
 - effort가 `-`인 agent는 effort를 받지 않는다. 설정에서 `"-"`로 둔다.
 - kimi는 effort를 실행 플래그로 받지 않는다. `~/.kimi-code/config.toml`의 `[thinking] effort`를 따르며(k3는 `low high max`, 기본 `max`), 역할별로 다르게 줄 수 없다. 설정에는 그 파일의 값을 적어 둔다.
 - codex의 `ultra`와 `max`는 Codex 0.155 이후의 값이다. 이전 버전은 `xhigh`까지다.
-- 초기화 명령이 없거나 "확인 필요"인 agent는 Task를 바꿀 때 pane을 `orca terminal close`로 닫고 그 pane 하나만 다시 만든다. high는 `<me>`에서 `--direction vertical`, mid와 low는 `<high>`에서 `--direction horizontal`로 split하고 새 handle을 `.harness/state.json`에 적는다. 세로 순서는 바뀔 수 있다.
+- 초기화 명령이 없거나 "확인 필요"인 agent는 Task를 바꿀 때 pane을 `orca terminal close`로 닫고 그 pane 하나만 다시 만든다. 오른쪽 첫 pane이었으면 `<me>`에서 `--direction vertical`, 그 외에는 오른쪽 첫 pane에서 `--direction horizontal`로 split하고 새 handle을 `.harness/state.json`에 적는다. 세로 순서는 바뀔 수 있다.
 - 모든 agent는 Orca를 실행하는 기기에 설치되고 로그인이 끝나 있어야 한다. 설치 여부는 아래로 확인한다.
 
 ```text
@@ -135,6 +135,8 @@ spec에 tier와 모델 이름은 적지 않는다.
 
 분석 결과를 `| # | tier | doc | title | files | deps |` 표로 사용자에게 보여주고 확인을 받는다. 사용자가 "자동" 또는 "바로 실행"이라고 했으면 확인 없이 진행한다.
 
+Task가 2개 이하이고 전부 low면 하네스의 고정 비용(pane, review, qa, approve)이 작업보다 크다. 표와 함께 "하네스 없이 이 세션에서 직접 진행할까요?"를 같이 묻는다. 직접 진행을 고르면 orchestrator가 그 자리에서 구현하고 Acceptance를 실행하고 커밋한 뒤 끝낸다. "자동"이면 묻지 않고 하네스로 진행한다.
+
 ### 4. Run과 Task 생성
 
 ```text
@@ -145,27 +147,26 @@ orca orchestration task-list --ready --brief --json
 
 제목 형식: 구현 `[high] <title>`, 재작업 `[mid] <title> (rework 1)`, 리뷰 `[review] <title>`, `[qa] <objective>`, `[approve] <objective>`.
 
-run_id, tier pane handle 3개, 각 pane의 현재 dispatch_id, qa·approve 회차를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구해 6절부터 이어 간다.
+run_id, tier별 pane handle, 각 pane의 현재 dispatch_id, qa·approve 회차를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구해 6절부터 이어 간다.
 
 ### 5. 배치
 
-레이아웃은 고정이다. 왼쪽은 orchestrator, 오른쪽은 위에서부터 high / mid / low pane이다. review, qa, approve는 새 탭이다.
+레이아웃: 왼쪽은 orchestrator, 오른쪽은 tier pane이다. review, qa, approve는 새 탭이다. tier pane은 미리 만들지 않고 그 tier의 ready Task가 처음 생길 때 만들며, 만든 뒤에는 실행이 끝날 때까지 유지한다. 작은 실행에서는 pane이 1개일 수도 있다.
 
 ```text
-[orchestrator] | [high]
-               | [mid ]
-               | [low ]
+[orchestrator] | [첫 tier pane ]
+               | [둘째 tier pane]
+               | [셋째 tier pane]
 ```
 
 이 빌드의 `terminal split --direction`은 `vertical`이 좌우 분할, `horizontal`이 상하 분할이다. 도움말 문구와 반대이므로 아래 순서를 그대로 쓴다. `--command`에는 바로 종료되는 명령을 넣으면 "Timed out waiting for split pane handle"로 실패한다.
 
-**tier pane 3개는 시작할 때 한 번만 만든다.**
+**pane 만들기.** 오른쪽 첫 pane은 `<me>`에서 vertical로, 그다음 pane은 오른쪽 첫 pane에서 horizontal로 나눈다. 세로 순서는 만든 순서를 따른다. tier마다 한 번만 만들고 handle을 `.harness/state.json`에 적는다.
 
 ```text
-orca terminal split --terminal <me>   --direction vertical   --command '<cmd_high>' --json   # 결과 handle = <high>
-orca terminal split --terminal <high> --direction horizontal --command '<cmd_low>'  --json   # 결과 handle = <low>
-orca terminal split --terminal <high> --direction horizontal --command '<cmd_mid>'  --json   # 결과 handle = <mid>
-orca terminal wait --terminal <high> --for tui-idle --timeout-ms 120000 --json               # <mid>, <low>도 같이 기다린다
+orca terminal split --terminal <me>    --direction vertical   --command '<cmd_tier>' --json   # 첫 pane. 결과 handle = <first>
+orca terminal split --terminal <first> --direction horizontal --command '<cmd_tier>' --json   # 둘째, 셋째 pane
+orca terminal wait --terminal <새 handle> --for tui-idle --timeout-ms 120000 --json
 ```
 
 pane 크기는 CLI로 맞출 수 없다. 사용자가 pane을 우클릭해 "Equalize pane sizes"를 누르거나 Settings → Shortcuts에서 `terminal.equalizePaneSizes`에 키를 배정한다.
@@ -222,10 +223,10 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다.
 
 ### 8. 종료
 
-approve가 `succeeded`면 tier pane을 전부 닫는다. Dispatch가 있었던 pane은 마지막 dispatch로 release하고, 한 번도 Task를 받지 않은 pane은 `orca terminal close --terminal <handle> --json`으로 닫는다. 추가로 나눈 pane도 같다.
+approve가 `succeeded`면 tier pane을 전부 마지막 dispatch로 release한다. 추가로 나눈 pane도 같다.
 
 ```text
-orca orchestration worker-release --dispatch <high 마지막 dispatch_id> --json   # mid, low도 같다
+orca orchestration worker-release --dispatch <pane의 마지막 dispatch_id> --json   # pane마다
 orca orchestration worker-list --terminal-state reclaimable --json
 ```
 
@@ -237,6 +238,6 @@ orca orchestration worker-list --terminal-state reclaimable --json
 
 - 리뷰어는 구현자와 다른 모델이어야 한다. 설정을 바꿀 때도 이 조건은 유지한다.
 - worker는 `--worktree current`로 같은 checkout에서 일한다. 파일 소유권이 겹치는 Task를 동시에 돌리지 않는다. tier나 출처 문서가 달라도 같다.
-- tier pane의 handle 3개와 각 pane의 현재 dispatch_id는 `.harness/state.json`이 기준이다. handle이 `terminal_handle_stale`이면 `orca terminal list --worktree current --json`으로 다시 찾는다.
+- tier별 pane handle과 각 pane의 현재 dispatch_id는 `.harness/state.json`이 기준이다. handle이 `terminal_handle_stale`이면 `orca terminal list --worktree current --json`으로 다시 찾는다.
 - `worker-start`가 실패하면 재실행하지 않는다. receipt의 `failedStage`를 읽고 `orca skills get orchestration --reference references/recovery-and-cleanup.md`를 따른다.
 - 모든 Orca 명령은 `--json`으로 실행하고 receipt를 읽는다. 출력이 있었다는 사실이 성공을 뜻하지 않는다.
