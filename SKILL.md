@@ -27,7 +27,7 @@ description: Use when the user hands over one or more PRDs, requirements documen
 | codex  | `codex`                     | `codex --model <model> -c model_reasoning_effort="<effort>" --dangerously-bypass-approvals-and-sandbox` | `/new`           | `minimal low medium high xhigh` | 검증됨    |
 | cursor | `agent` (구 `cursor-agent`) | `agent --model <model> --force`                                                                         | 없음             | -                               | 문서 기준 |
 | gemini | `gemini`                    | `gemini --model <model> --approval-mode=yolo`                                                           | `/clear`         | -                               | 문서 기준 |
-| kimi   | `kimi`                      | `kimi --model <model> --yolo`                                                                           | 확인 필요        | -                               | 문서 기준 |
+| kimi   | `kimi`                      | `kimi --model <model> --thinking --yolo`                                                                | 확인 필요        | - (`--thinking`이 최대)         | 문서 기준 |
 | grok   | `grok`                      | `grok --always-approve` (model은 `~/.grok/config.toml`)                                                 | 확인 필요        | -                               | 문서 기준 |
 | custom | -                           | 사용자가 준 명령                                                                                        | 사용자가 준 명령 | -                               | -         |
 
@@ -51,11 +51,11 @@ command -v claude codex agent gemini kimi grok                                  
 | 역할         | agent  | model       | effort | 비고               |
 | ------------ | ------ | ----------- | ------ | ------------------ |
 | orchestrator | claude | fable       | xhigh  |                    |
-| impl-high    | codex  | gpt-6-astra | high   |                    |
-| impl-mid     | kimi   | kimi-k3     | -      |                    |
-| impl-low     | kimi   | kimi-k3     | -      |                    |
-| review       | claude | opus        | high   | 구현자와 다른 모델 |
-| qa           | codex  | gpt-6-astra | medium |                    |
+| impl-high    | codex  | gpt-6-astra | xhigh  |                    |
+| impl-mid     | kimi   | kimi-k3     | -      | `--thinking`으로 최대 |
+| impl-low     | kimi   | kimi-k3     | -      | `--thinking`으로 최대 |
+| review       | claude | opus        | xhigh  | 구현자와 다른 모델 |
+| qa           | codex  | gpt-6-astra | xhigh  |                    |
 | approve      | codex  | gpt-6-astra | xhigh  | 최종 승인          |
 
 ## 난이도 기준
@@ -90,11 +90,11 @@ command -v claude codex agent gemini kimi grok                                  
   "test_command": "npm test",
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
-    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "high" },
+    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" },
     "impl-mid":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "-" },
     "impl-low":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "-" },
-    "review":       { "agent": "claude", "model": "opus",        "effort": "high" },
-    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "medium" },
+    "review":       { "agent": "claude", "model": "opus",        "effort": "xhigh" },
+    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" },
     "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" }
   }
 }
