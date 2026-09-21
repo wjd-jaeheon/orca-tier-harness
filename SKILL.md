@@ -24,15 +24,17 @@ description: Use when the user hands over one or more PRDs, requirements documen
 | agent  | 실행 파일                   | 실행 명령 템플릿                                                                                        | 초기화           | effort 허용 값                  | 상태      |
 | ------ | --------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------- | --------- |
 | claude | `claude`                    | `claude --model <model> --effort <effort> --dangerously-skip-permissions`                               | `/clear`         | `low medium high xhigh max`     | 검증됨    |
-| codex  | `codex`                     | `codex --model <model> -c model_reasoning_effort="<effort>" --dangerously-bypass-approvals-and-sandbox` | `/new`           | `minimal low medium high xhigh` | 검증됨    |
+| codex  | `codex`                     | `codex --model <model> -c model_reasoning_effort="<effort>" --dangerously-bypass-approvals-and-sandbox` | `/new`           | `minimal low medium high xhigh ultra max` | 검증됨    |
 | cursor | `agent` (구 `cursor-agent`) | `agent --model <model> --force`                                                                         | 없음             | -                               | 문서 기준 |
 | gemini | `gemini`                    | `gemini --model <model> --approval-mode=yolo`                                                           | `/clear`         | -                               | 문서 기준 |
-| kimi   | `kimi`                      | `kimi --model <model> --thinking --yolo`                                                                | 확인 필요        | - (`--thinking`이 최대)         | 문서 기준 |
+| kimi   | `kimi`                      | `kimi --model <model> --yolo`                                                                           | 확인 필요        | `low high max` (설정 파일)      | 문서 기준 |
 | grok   | `grok`                      | `grok --always-approve` (model은 `~/.grok/config.toml`)                                                 | 확인 필요        | -                               | 문서 기준 |
 | custom | -                           | 사용자가 준 명령                                                                                        | 사용자가 준 명령 | -                               | -         |
 
 - "검증됨"은 Orca 1.4.205에서 이 스킬로 실제 실행한 행이다. "문서 기준" 행은 첫 사용 전에 `<실행 파일> --help`로 model 플래그와 승인 생략 플래그를 확인하고, 다르면 이 표를 고친다.
 - effort가 `-`인 agent는 effort를 받지 않는다. 설정에서 `"-"`로 둔다.
+- kimi는 effort를 실행 플래그로 받지 않는다. `~/.kimi-code/config.toml`의 `[thinking] effort`를 따르며(k3는 `low high max`, 기본 `max`), 역할별로 다르게 줄 수 없다. 설정에는 그 파일의 값을 적어 둔다.
+- codex의 `ultra`와 `max`는 Codex 0.155 이후의 값이다. 이전 버전은 `xhigh`까지다.
 - 초기화 명령이 없거나 "확인 필요"인 agent는 Task를 바꿀 때 pane을 `orca terminal close`로 닫고 그 pane 하나만 다시 만든다. high는 `<me>`에서 `--direction vertical`, mid와 low는 `<high>`에서 `--direction horizontal`로 split하고 새 handle을 `.harness/state.json`에 적는다. 세로 순서는 바뀔 수 있다.
 - 모든 agent는 Orca를 실행하는 기기에 설치되고 로그인이 끝나 있어야 한다. 설치 여부는 아래로 확인한다.
 
@@ -51,12 +53,12 @@ command -v claude codex agent gemini kimi grok                                  
 | 역할         | agent  | model       | effort | 비고               |
 | ------------ | ------ | ----------- | ------ | ------------------ |
 | orchestrator | claude | fable       | xhigh  |                    |
-| impl-high    | codex  | gpt-6-astra | xhigh  |                    |
-| impl-mid     | kimi   | kimi-k3     | -      | `--thinking`으로 최대 |
-| impl-low     | kimi   | kimi-k3     | -      | `--thinking`으로 최대 |
+| impl-high    | codex  | gpt-6-astra | ultra  |                    |
+| impl-mid     | kimi   | kimi-k3     | max    | 설정 파일 기본값   |
+| impl-low     | kimi   | kimi-k3     | max    | 설정 파일 기본값   |
 | review       | claude | opus        | xhigh  | 구현자와 다른 모델 |
-| qa           | codex  | gpt-6-astra | xhigh  |                    |
-| approve      | codex  | gpt-6-astra | xhigh  | 최종 승인          |
+| qa           | codex  | gpt-6-astra | ultra  |                    |
+| approve      | codex  | gpt-6-astra | ultra  | 최종 승인          |
 
 ## 난이도 기준
 
@@ -90,12 +92,12 @@ command -v claude codex agent gemini kimi grok                                  
   "test_command": "npm test",
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
-    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" },
-    "impl-mid":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "-" },
-    "impl-low":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "-" },
+    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "ultra" },
+    "impl-mid":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "max" },
+    "impl-low":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "max" },
     "review":       { "agent": "claude", "model": "opus",        "effort": "xhigh" },
-    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" },
-    "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "xhigh" }
+    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "ultra" },
+    "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "ultra" }
   }
 }
 ```
