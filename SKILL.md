@@ -34,7 +34,8 @@ description: Use when the user hands over one or more PRDs, requirements documen
 - "검증됨"은 Orca 1.4.205에서 이 스킬로 실제 실행한 행이다. "문서 기준" 행은 첫 사용 전에 `<실행 파일> --help`로 model 플래그와 승인 생략 플래그를 확인하고, 다르면 이 표를 고친다.
 - effort가 `-`인 agent는 effort를 받지 않는다. 설정에서 `"-"`로 둔다.
 - kimi의 K3 모델 id는 `kimi-code/k3`다(256K 창은 `kimi-code/k3-256k`). `kimi-k3`가 아니다. 로그인하면 `~/.kimi/config.toml`이 이 id들을 등록한다.
-- kimi는 `--thinking`으로 사고 모드를 켠다. K3는 사고가 항상 켜져 있고 effort 단계 플래그는 없으므로 설정 effort는 `-`로 둔다.
+- kimi는 `--thinking`으로 사고 모드를 켠다. effort 단계는 실행 플래그가 없고 `~/.kimi/config.toml`의 모델 블록 `default_effort`로 정한다. 최고는 `max`다(웹의 Standard/High/Max와 대응). 하네스가 역할별로 바꿀 수 없으므로 설정 effort는 `-`로 두고, 전역 최고를 원하면 아래를 한 번 넣는다.
+  `[models."kimi-code/k3"]` 블록에 `default_effort = "max"` 추가. 검증됨(2026-09-21): 이 키로 kimi가 오류 없이 K3를 띄운다.
 - kimi는 로그인이 kimi.com(본토)으로 하드코딩된 버그가 있어, 해외 kimi.ai 구독 계정은 아래처럼 OAuth 호스트를 바꿔서 한 번 로그인해야 한다. 로그인 후 실행에는 이 변수가 필요 없다(config.toml에 base_url이 남는다).
   PowerShell: `$env:KIMI_CODE_OAUTH_HOST="https://auth.kimi.ai"; $env:KIMI_CODE_BASE_URL="https://api.kimi.ai/coding/v1"; kimi login`
 - codex의 `ultra`와 `max`는 Codex 0.155 이후의 값이다. 이전 버전은 `xhigh`까지다.
