@@ -15,7 +15,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 ```
 
 - orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 검증합니다.
-- [dryforge](https://github.com/prekuter/dryforge)의 `ready` 스킬이 만든 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)이 있으면 planner 대신 그 계획을 씁니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다.
+- 요구사항 문서를 받으면 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 같은 세션에서 수행해 사용자와 대화하며 의도를 확인하고 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. planner 대신 그 계획을 쓰며, `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. "자동"이라고 하면 대화 없이 planner로 계획합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다.
 - 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다.
 - 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
@@ -57,12 +57,7 @@ $tier-harness docs/prd-auth.md docs/prd-billing.md     # Codex
 
 문서 경로는 말로 풀어 써도 됩니다. 디렉터리를 주면 그 안의 `*.md` 전부를 읽습니다. 시작하면 설치된 agent를 탐지해 라우팅 표를 제안하고, 확인을 받은 뒤 Task 분석으로 넘어갑니다.
 
-dryforge와 함께 쓰려면 `ready`로 먼저 의도를 확인하고 3-doc을 승인한 뒤, 문서 경로 없이 이 스킬을 부릅니다.
-
-```text
-/dryforge:ready docs/prd-auth.md     # 질문에 답하고 3-doc 승인
-/tier-harness                        # .dryforge/ 를 찾아 3-doc 모드로 실행
-```
+한 번의 명령으로 설정, ready 대화(질문에 답하고 3-doc 승인), 실행까지 이어집니다. dryforge 플러그인으로 `/dryforge:ready`를 따로 돌려 `.dryforge/`에 3-doc을 만들어 두었다면, 문서 경로 없이 `/tier-harness`만 불러도 그 3-doc으로 실행합니다.
 
 ## 검증 상태
 
@@ -77,4 +72,4 @@ dryforge와 함께 쓰려면 `ready`로 먼저 의도를 확인하고 3-doc을 �
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). `ready/`는 [dryforge](https://github.com/prekuter/dryforge)에서 가져온 것이며 별도의 [MIT 라이선스](ready/LICENSE)를 따릅니다.

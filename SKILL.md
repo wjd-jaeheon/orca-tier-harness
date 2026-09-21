@@ -16,7 +16,7 @@ description: Use when the user hands over one or more PRDs, requirements documen
 
 입력 모드는 둘 중 하나다. 시작할 때 먼저 판정하고 `.harness/state.json`에 `"mode"`로 적는다.
 
-- **3-doc 모드**: 저장소 루트에 `.dryforge/plan.md`가 있고 그 안에 `tasks`와 `depends`를 가진 ```` ```yaml ```` 블록(Execution Graph)이 있으며 `.dryforge/spec.md`와 `.dryforge/handoff.md`가 함께 있으면 이 모드다. dryforge의 `ready` 스킬이 사용자와 대화하며 만든 결과물이다. 요구사항 문서 경로는 받지 않는다. config의 `docs`는 이 세 파일 경로로 채운다. 요구사항 원문은 `spec.md`(동작)와 `handoff.md`(hard gates, 문서 역할)다.
+- **3-doc 모드**: 저장소 루트에 `.dryforge/plan.md`가 있고 그 안에 `tasks`와 `depends`를 가진 ```` ```yaml ```` 블록(Execution Graph)이 있으며 `.dryforge/spec.md`와 `.dryforge/handoff.md`가 함께 있으면 이 모드다. 이 스킬에 동봉된 ready 절차(`ready/READY.md`, dryforge에서 가져옴)나 dryforge 플러그인의 `ready`가 사용자와 대화하며 만든 결과물이다. 요구사항 문서 경로는 받지 않는다. config의 `docs`는 이 세 파일 경로로 채운다. 요구사항 원문은 `spec.md`(동작)와 `handoff.md`(hard gates, 문서 역할)다.
 - **문서 모드**: 3-doc이 없으면 이 모드다. 요구사항 문서 경로 1개 이상이 필수다. 프롬프트에서 경로를 찾는다. 형식은 자유다. 디렉터리를 주면 그 안의 `*.md` 전부다(하위 폴더 제외). 경로가 없거나 어느 파일인지 불명확하면 사용자에게 묻는다.
 - 두 모드 공통: 전체 테스트·빌드 명령 (3-doc 모드면 handoff.md의 hard gates에서 먼저 찾는다. 없으면 저장소에서 찾고, 못 찾으면 사용자에게 묻는다. 사용자도 없다고 하면 qa spec에 "테스트 명령 없음, 수동 검증만"이라고 적는다)
 
@@ -154,17 +154,17 @@ trust_level = "trusted"
 
 ### 3. 분석 (계획 + plan-review)
 
-orchestrator는 Task 목록을 직접 만들지 않는다. 계획은 문서 모드에서는 planner가, 3-doc 모드에서는 `ready`가 이미 세웠다. plan-review가 검증한다. orchestrator는 dispatch와 판정만 한다.
+orchestrator는 Task 목록을 임의로 만들지 않는다. 계획은 planner 또는 ready 절차로만 만든다. 3-doc 모드에서는 이미 세워져 있다. plan-review가 검증한다. 그 외에 orchestrator는 dispatch와 판정만 한다.
 
 **빠른 판정.** 먼저 orchestrator가 요구사항 원문을 훑어 대략의 Task 수를 본다. Task가 2개 이하이고 전부 low로 보이면 하네스의 고정 비용(계획, pane, review, qa, approve)이 작업보다 크다. "하네스 없이 이 세션에서 직접 진행할까요?"를 묻는다. 직접 진행을 고르면 orchestrator가 그 자리에서 구현하고 Acceptance를 실행하고 커밋한 뒤 끝낸다. "자동"이면 묻지 않고 하네스로 진행한다. 그 외에는 모드별 계획 단계로 간다.
 
-**ready 안내(문서 모드에서만).** dryforge가 설치되어 있으면(Claude Code: `/dryforge:ready`, Codex: `$ready`) planner를 띄우기 전에 묻는다. Claude Code면 AskUserQuestion으로 "ready로 의도를 먼저 확인 / planner로 바로 계획" 두 선택지를 준다. 그 외 CLI는 채팅으로 묻는다. ready를 고르면 "`/dryforge:ready <docs>`를 실행해 3-doc을 승인한 뒤 `/tier-harness`를 다시 부르라"고 안내하고 이 세션은 끝낸다. ready는 사용자만 부를 수 있는 스킬이라 orchestrator가 대신 실행할 수 없다. ready가 끝에 `go`를 실행하라고 안내하더라도 `go`는 쓰지 않고 이 스킬이 실행을 맡는다. planner를 고르거나 dryforge가 없으면 아래 문서 모드 계획으로 간다.
+**ready(문서 모드에서만).** 사용자가 "자동"이라고 하지 않았으면 planner 대신 이 스킬에 동봉된 ready 절차로 계획을 만든다. `<이 SKILL.md가 있는 디렉터리>/ready/READY.md`를 읽고 그 절차(ORIENT, DECOMPOSE, ELICIT, intent-completeness, SPEC, PLAN, HANDOFF, 3-doc-gate, USER GATE)를 이 세션에서 그대로 수행한다. READY.md 안의 `references/...` 경로는 `ready/references/...`로 읽는다. 입력은 config의 docs다. ready가 쓰는 subagent 두 개(intent-completeness, 3-doc-gate)는 Claude Code면 Agent 도구로, Codex면 그 CLI의 subagent 기능으로 띄운다. USER GATE에서 사용자가 3-doc을 승인하면 `.dryforge/`에 3-doc이 생겼으므로 mode를 3-doc으로 바꿔 state.json에 적고 config의 docs를 3-doc 경로로 바꾼 뒤 아래 "계획(3-doc 모드)"로 간다. READY.md가 끝에 `go`를 실행하라고 하는 부분은 따르지 않는다. 실행은 이 스킬이 맡는다. 사용자가 "자동"이라고 했으면 ready의 대화를 할 수 없으므로 아래 문서 모드 계획(planner)으로 간다. 사용자가 dryforge 플러그인의 `/dryforge:ready`를 따로 돌려 3-doc을 이미 만들어 두었으면 시작부터 3-doc 모드이므로 이 단계는 없다.
 
 **계획(문서 모드).** planner를 새 탭에 띄우고(4절 탭 절차) 계획 템플릿을 spec으로 준다. planner는 docs를 읽고 `.harness/plan-<회차>.md`에 Task 목록과 분해 근거를 쓴다. 각 Task는 Source(출처 문서 경로) / Target / Change / Constraints / Ownership(수정 가능한 파일) / Acceptance(검증 명령) / Deps / Rationale(이 Task로 쪼갠 이유)를 포함한다. tier와 모델 이름은 적지 않는다.
 
 의존 관계 규칙(planner가 따르고 plan-review가 검증): B가 A의 결과를 쓰거나 A와 같은 파일을 수정하면 B는 A에 의존한다. 문서가 달라도 같다. 파일이 겹치는데 논리 순서가 없으면 tier가 낮은 쪽을 앞에 둔다. 겹치지 않으면 순서가 없다.
 
-**계획(3-doc 모드).** planner를 띄우지 않는다. 먼저 orchestrator가 그래프를 검사한다. yaml이 파싱되고, `depends`에 순환이 없고, `depends`와 `regen_barriers[].after`의 id가 모두 실제 task이고, plan.md 본문의 task 목록과 그래프의 id 집합이 같아야 한다. 하나라도 틀리면 ready 결함이다. 틀린 곳(id, 순환 경로, 불일치)을 사용자에게 보고하고 `/dryforge:ready`로 고쳐 달라고 한 뒤 끝낸다. 통과하면 plan.md의 task를 아래 매핑으로 `.harness/plan-<회차>.md`에 이 스킬의 Task 형식으로 옮겨 적는다. 내용을 바꾸지 않고 형식만 옮긴다.
+**계획(3-doc 모드).** planner를 띄우지 않는다. 먼저 orchestrator가 그래프를 검사한다. yaml이 파싱되고, `depends`에 순환이 없고, `depends`와 `regen_barriers[].after`의 id가 모두 실제 task이고, plan.md 본문의 task 목록과 그래프의 id 집합이 같아야 한다. 하나라도 틀리면 계획 결함이다. 이 세션에서 ready를 수행했으면 READY.md의 PLAN 단계만 다시 수행해 그래프를 고친다. 승인된 spec.md는 바꾸지 않는다. 사용자가 3-doc을 따로 만들어 왔으면 틀린 곳(id, 순환 경로, 불일치)을 보고하고 `/dryforge:ready`로 고쳐 달라고 한 뒤 끝낸다. 통과하면 plan.md의 task를 아래 매핑으로 `.harness/plan-<회차>.md`에 이 스킬의 Task 형식으로 옮겨 적는다. 내용을 바꾸지 않고 형식만 옮긴다.
 
 | 이 스킬의 항목 | 3-doc에서 가져오는 곳 |
 | --- | --- |
@@ -179,7 +179,7 @@ orchestrator는 Task 목록을 직접 만들지 않는다. 계획은 문서 모�
 
 plan.md의 shared-write가 "wave 끝에 한 번에 등록한다"처럼 등록 단계를 적어 두었으면, 그 공용 파일을 Ownership으로 하고 등록이 필요한 task 전부를 Deps로 하는 low Task를 하나 더 만든다(제목 `[low] <파일> wiring`). `regen_barriers`는 Task로 만들지 않고 6절에서 orchestrator가 실행한다.
 
-**계획 검증.** plan-review를 새 탭에 띄우고 plan-review 템플릿과 계획 경로를 준다. 3-doc 모드면 `.dryforge/spec.md`, `.dryforge/handoff.md`, `.dryforge/plan.md` 경로도 함께 준다. `failed`면 재작업한다. 문서 모드는 리포트의 blocking 사유를 planner 계획에 붙여 재작업 계획을 만들고 다시 검증한다. 3-doc 모드는 blocking 사유와 리포트 경로를 사용자에게 보고하고 `/dryforge:ready`에 그 리포트를 입력으로 더해 다시 돌린 뒤 `/tier-harness`를 다시 부르라고 안내하고 끝낸다. 재작업은 최대 10회다. plan-review 리포트의 blocking 사유를 회차마다 기록하고, 같은 사유가 3회 반복되면 10회 전이라도 멈추고 사용자에게 올린다. 같은 사유는 같은 요구사항 항목이나 같은 파일을 두고 같은 지적이 반복되는 것을 뜻한다.
+**계획 검증.** plan-review를 새 탭에 띄우고 plan-review 템플릿과 계획 경로를 준다. 3-doc 모드면 `.dryforge/spec.md`, `.dryforge/handoff.md`, `.dryforge/plan.md` 경로도 함께 준다. `failed`면 재작업한다. 문서 모드는 리포트의 blocking 사유를 planner 계획에 붙여 재작업 계획을 만들고 다시 검증한다. 3-doc 모드는 리포트 경로를 입력 material에 더해 READY.md의 ELICIT부터 다시 수행하고(사용자와 대화해 blocking 사유를 닫는다), 새 3-doc으로 그래프 검사와 매핑부터 다시 한다. 사용자가 3-doc을 따로 만들어 왔을 때도 같다. 재작업은 최대 10회다. plan-review 리포트의 blocking 사유를 회차마다 기록하고, 같은 사유가 3회 반복되면 10회 전이라도 멈추고 사용자에게 올린다. 같은 사유는 같은 요구사항 항목이나 같은 파일을 두고 같은 지적이 반복되는 것을 뜻한다.
 
 **확정.** plan-review가 `succeeded`면 계획의 Task를 `| # | tier | doc | title | files | deps |` 표로 사용자에게 보여주고 확인을 받는다. 사용자가 "자동" 또는 "바로 실행"이라고 했으면 확인 없이 진행한다. 3-doc 모드에서는 사용자가 ready의 USER GATE에서 이미 3-doc을 승인했으므로 확인 없이 진행한다.
 
