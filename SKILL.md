@@ -27,13 +27,16 @@ description: Use when the user hands over one or more PRDs, requirements documen
 | codex  | `codex`                     | `codex --model <model> -c model_reasoning_effort="<effort>" --dangerously-bypass-approvals-and-sandbox` | `/new`           | `minimal low medium high xhigh ultra max` | 검증됨    |
 | cursor | `agent` (구 `cursor-agent`) | `agent --model <model> --force`                                                                         | 없음             | -                               | 문서 기준 |
 | gemini | `gemini`                    | `gemini --model <model> --approval-mode=yolo`                                                           | `/clear`         | -                               | 문서 기준 |
-| kimi   | `kimi`                      | `kimi --model <model> --thinking --yolo`                                                                | `/clear`         | `low high max` (설정 파일)      | 플래그 확인 |
+| kimi   | `kimi`                      | `kimi --model <model> --thinking --yolo`                                                                | `/clear`         | thinking 기본 on, 단계 없음     | 검증됨    |
 | grok   | `grok`                      | `grok --always-approve` (model은 `~/.grok/config.toml`)                                                 | 확인 필요        | -                               | 문서 기준 |
 | custom | -                           | 사용자가 준 명령                                                                                        | 사용자가 준 명령 | -                               | -         |
 
 - "검증됨"은 Orca 1.4.205에서 이 스킬로 실제 실행한 행이다. "문서 기준" 행은 첫 사용 전에 `<실행 파일> --help`로 model 플래그와 승인 생략 플래그를 확인하고, 다르면 이 표를 고친다.
 - effort가 `-`인 agent는 effort를 받지 않는다. 설정에서 `"-"`로 둔다.
-- kimi는 `--thinking`으로 사고 모드만 켜고, effort 단계는 실행 플래그로 받지 않는다. `~/.kimi-code/config.toml`의 `[thinking] effort`를 따르며(k3는 `low high max`, 기본 `max`), 역할별로 다르게 줄 수 없다. 설정에는 그 파일의 값을 적어 둔다. "플래그 확인"은 kimi-cli 1.50.0의 `--help`로 플래그와 `/clear`만 확인했고 하네스로 돌려 보지는 않았다는 뜻이다.
+- kimi의 K3 모델 id는 `kimi-code/k3`다(256K 창은 `kimi-code/k3-256k`). `kimi-k3`가 아니다. 로그인하면 `~/.kimi/config.toml`이 이 id들을 등록한다.
+- kimi는 `--thinking`으로 사고 모드를 켠다. K3는 사고가 항상 켜져 있고 effort 단계 플래그는 없으므로 설정 effort는 `-`로 둔다.
+- kimi는 로그인이 kimi.com(본토)으로 하드코딩된 버그가 있어, 해외 kimi.ai 구독 계정은 아래처럼 OAuth 호스트를 바꿔서 한 번 로그인해야 한다. 로그인 후 실행에는 이 변수가 필요 없다(config.toml에 base_url이 남는다).
+  PowerShell: `$env:KIMI_CODE_OAUTH_HOST="https://auth.kimi.ai"; $env:KIMI_CODE_BASE_URL="https://api.kimi.ai/coding/v1"; kimi login`
 - codex의 `ultra`와 `max`는 Codex 0.155 이후의 값이다. 이전 버전은 `xhigh`까지다.
 - 초기화 명령이 없거나 "확인 필요"인 agent는 Task를 바꿀 때 pane을 `orca terminal close`로 닫고 그 pane 하나만 다시 만든다. 오른쪽 첫 pane이었으면 `<me>`에서 `--direction vertical`, 그 외에는 오른쪽 첫 pane에서 `--direction horizontal`로 split하고 새 handle을 `.harness/state.json`에 적는다. 세로 순서는 바뀔 수 있다.
 - 모든 agent는 Orca를 실행하는 기기에 설치되고 로그인이 끝나 있어야 한다. 설치 여부는 아래로 확인한다.
@@ -54,8 +57,8 @@ command -v claude codex agent gemini kimi grok                                  
 | ------------ | ------ | ----------- | ------ | ------------------ |
 | orchestrator | claude | fable       | xhigh  |                    |
 | impl-high    | codex  | gpt-6-astra | max    |                    |
-| impl-mid     | kimi   | kimi-k3     | max    | 설정 파일 기본값   |
-| impl-low     | kimi   | kimi-k3     | max    | 설정 파일 기본값   |
+| impl-mid     | kimi   | kimi-code/k3 | -     | thinking on        |
+| impl-low     | kimi   | kimi-code/k3 | -     | thinking on        |
 | review       | claude | opus        | max    | 구현자와 다른 모델 |
 | qa           | codex  | gpt-6-astra | max    |                    |
 | approve      | codex  | gpt-6-astra | max    | 최종 승인          |
@@ -93,8 +96,8 @@ command -v claude codex agent gemini kimi grok                                  
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
     "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "impl-mid":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "max" },
-    "impl-low":     { "agent": "kimi",   "model": "kimi-k3",     "effort": "max" },
+    "impl-mid":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
+    "impl-low":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
     "review":       { "agent": "claude", "model": "opus",        "effort": "max" },
     "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
     "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" }

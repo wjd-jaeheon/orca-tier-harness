@@ -57,7 +57,8 @@ $tier-harness docs/prd-auth.md docs/prd-billing.md     # Codex
 | -------------------------------------- | ------------------------------------------- |
 | Claude Code에서 시작, claude/codex worker | Orca 1.4.205에서 실행 확인                 |
 | Codex에서 시작 (`$tier-harness`)         | 설정 절까지 실행 확인                       |
-| cursor / gemini / kimi / grok 실행 플래그 | 공식 문서 기준, 미실행. 첫 사용 전 `--help`로 확인 |
+| kimi (kimi-cli 1.50.0)                    | 설치·로그인·플래그·모델 id(`kimi-code/k3`) 확인. 해외 계정은 로그인 시 `KIMI_CODE_OAUTH_HOST=https://auth.kimi.ai` 필요 |
+| cursor / gemini / grok 실행 플래그        | 공식 문서 기준, 미실행. 첫 사용 전 `--help`로 확인 |
 
 자세한 절차와 규칙은 [SKILL.md](SKILL.md)에 있습니다.
 
