@@ -161,7 +161,7 @@ orca orchestration task-list --ready --brief --json
 
 의존하는 Task는 여기서 만들지 않고, 선행 Task 전부의 review가 `succeeded`된 시점에 `--deps '["<선행 task_id>"]'`로 task-create 한다. 그래야 재작업 중인 Task와 같은 파일을 동시에 건드리지 않는다.
 
-run_id, tier별 pane handle, 각 pane의 현재 dispatch_id, qa·approve 회차, 계획 회차와 회차별 blocking 사유를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구해 6절부터 이어 간다.
+run_id, tier별 pane handle, 각 pane의 현재 dispatch_id, qa·approve 회차, 계획 회차, Task별 재작업 회차, 그리고 계획과 Task별 재작업의 회차별 blocking 사유를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구해 6절부터 이어 간다.
 
 ### 5. 배치
 
@@ -229,7 +229,7 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다.
 **plan → plan-review → implement → review → qa → approve** 순서로 흐른다. plan과 plan-review는 3절에서 이미 돌았다. 나머지 각 단계는 앞 단계 Task를 `--deps`로 건다. 모든 역할은 판단의 근거를 리포트나 worker_done body에 남긴다. 그래야 다음 단계가 검증할 수 있다.
 
 1. **review** (구현 Task마다 1개, `review` 역할): 구현 Task가 `succeeded`면 만든다. spec에 구현 Task의 spec 전문과 커밋 sha를 넣고 review 템플릿을 붙인다.
-   `failed`면 리포트 경로를 spec에 붙인 재작업 Task를 새로 만들고 tier를 한 단계 올려 다시 투입한다. 같은 Task의 재작업은 최대 2회다. 그 뒤에는 사용자에게 올린다. 답을 기다리는 동안 그 Task는 보류하고, 그 pane에는 다른 ready Task를 넣거나 retain한다. 후속 Task는 deps 때문에 ready가 되지 않으므로 그대로 둔다. 사용자가 결정하면 재작업 Task를 만들거나, 그 Task와 후속 Task를 제외하고 진행한다.
+   `failed`면 리포트 경로를 spec에 붙인 재작업 Task를 새로 만들고 tier를 한 단계 올려 다시 투입한다. 같은 Task의 재작업은 최대 10회다. review 리포트 첫 줄의 blocking 사유를 회차마다 `.harness/state.json`에 기록하고, 같은 사유가 3회 반복되면 10회 전이라도 멈추고 사용자에게 올린다. 같은 사유는 같은 파일이나 같은 요구를 두고 같은 지적이 반복되는 것을 뜻한다. 사용자에게 올린 뒤에는 그 Task를 보류하고, 그 pane에는 다른 ready Task를 넣거나 retain한다. 후속 Task는 deps 때문에 ready가 되지 않으므로 그대로 둔다. 사용자가 결정하면 재작업 Task를 만들거나, 그 Task와 후속 Task를 제외하고 진행한다.
 2. **qa** (전체 1개, `qa` 역할): 모든 review가 `succeeded`면 만든다. spec에 config의 docs 전부와 전체 테스트·빌드 명령을 넣고 qa 템플릿을 붙인다. `failed`면 리포트의 항목별로 재작업 Task를 만든다.
 3. **approve** (전체 1개, `approve` 역할): qa가 `succeeded`면 만든다. spec에 config의 docs 전부와 review·qa 리포트 경로를 넣고 approve 템플릿을 붙인다. `failed`면 사유별로 재작업 Task를 만들어 1번부터 반복한다.
 
@@ -279,6 +279,7 @@ review:
 - 확인 순서: (1) Change의 각 항목이 구현됐고 Acceptance가 실제로 통과하는가(직접 실행). (2) 커밋에 Ownership 밖 파일이 있는가. (3) 새 동작에 테스트가 있고 기존 테스트를 약화시키지 않았는가. (4) 호출자, 공용 인터페이스, 데이터 경로에 회귀 위험이 있는가.
 - 지적은 `파일:줄 | blocking 또는 minor | 문제 | 수정안` 형식으로 한 줄씩 `.harness/reports/<task_id>-review.md`에 쓰고 worker_done의 --report-path로 제출한다.
 - blocking이 하나라도 있으면 --outcome failed, 없으면 succeeded. 스타일과 취향은 minor로만 적고 failed 사유로 삼지 않는다.
+- failed면 body 첫 줄에 blocking 사유를 한 문장으로 요약한다(회차 비교용).
 ```
 
 qa:
