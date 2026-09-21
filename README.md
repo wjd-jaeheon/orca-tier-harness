@@ -6,13 +6,17 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 ## 구성
 
+흐름: `plan → plan-review → impl(high/mid/low) → impl-review → qa → approve → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
+
 ```text
-[orchestrator] | [high]      tier pane은 그 tier의 Task가 처음 생길 때 만들어지고
-               | [mid ]      review / qa / approve 는 Task마다 새 탭
+[orchestrator] | [high]      plan / plan-review / review / qa / approve 는 새 탭
+               | [mid ]      tier pane은 그 tier의 Task가 처음 생길 때 만들어짐
                | [low ]
 ```
 
-- orchestrator는 코드를 직접 수정하지 않고 분석, 분배, 대기, 보고만 합니다. Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
+- orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 검증합니다.
+- 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
+- Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
 - 리뷰어는 구현자와 다른 모델이어야 한다는 검증이 붙습니다.
 - worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(구현, review, qa, approve)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.

@@ -1,6 +1,6 @@
 ---
 name: tier-harness
-description: Use when the user hands over one or more PRDs, requirements documents, or issue lists and asks to implement them through Orca with difficulty-tiered worker models (high/mid/low) and separate review, QA, and approval agents. Triggers include "하네스", "harness", "tier로 나눠서 구현", "오케스트레이션으로 구현", "/tier-harness <doc> [<doc> ...]" in Claude Code, "$tier-harness <doc> [<doc> ...]" in Codex.
+description: Use when the user hands over one or more PRDs, requirements documents, or issue lists and asks to implement them through Orca with a planner, difficulty-tiered implementation workers (high/mid/low), and separate plan-review, code-review, QA, and approval agents. Triggers include "하네스", "harness", "tier로 나눠서 구현", "오케스트레이션으로 구현", "/tier-harness <doc> [<doc> ...]" in Claude Code, "$tier-harness <doc> [<doc> ...]" in Codex.
 ---
 
 # Tier harness (Orca 오케스트레이션)
@@ -54,15 +54,17 @@ command -v claude codex agent gemini kimi grok                                  
 
 1절에서 제안 표를 만들 때 출발점이다. 설치되지 않은 agent가 있으면 설치된 agent로 바꿔서 제안한다.
 
-| 역할         | agent  | model       | effort | 비고               |
-| ------------ | ------ | ----------- | ------ | ------------------ |
-| orchestrator | claude | fable       | xhigh  |                    |
-| impl-high    | codex  | gpt-6-astra | max    |                    |
-| impl-mid     | kimi   | kimi-code/k3 | -     | thinking on        |
-| impl-low     | kimi   | kimi-code/k3 | -     | thinking on        |
-| review       | claude | opus        | max    | 구현자와 다른 모델 |
-| qa           | codex  | gpt-6-astra | max    |                    |
-| approve      | codex  | gpt-6-astra | max    | 최종 승인          |
+| 역할         | agent  | model       | effort | 비고                  |
+| ------------ | ------ | ----------- | ------ | --------------------- |
+| orchestrator | claude | fable       | xhigh  | 사용자와 대화하는 유일한 역할 |
+| planner      | codex  | gpt-6-astra | max    |                       |
+| plan-review  | claude | fable       | xhigh  | planner와 다른 모델   |
+| impl-high    | codex  | gpt-6-astra | max    |                       |
+| impl-mid     | kimi   | kimi-code/k3 | -     | thinking on           |
+| impl-low     | kimi   | kimi-code/k3 | -     | thinking on           |
+| review       | claude | opus        | max    | 구현자와 다른 모델    |
+| qa           | codex  | gpt-6-astra | max    |                       |
+| approve      | codex  | gpt-6-astra | max    | 최종 승인             |
 
 ## 난이도 기준
 
@@ -87,7 +89,7 @@ command -v claude codex agent gemini kimi grok                                  
 1. agent CLI 표의 실행 파일을 전부 검사해 설치된 agent 목록을 만든다. custom은 검사하지 않고 설치된 것으로 본다.
 2. 기본 라우팅을 설치된 agent만으로 채운 제안 표를 만든다. 설치된 agent 목록과 함께 보여준다.
 3. 사용자에게 묻는다. Claude Code면 AskUserQuestion으로 "표대로 진행 / 수정" 두 선택지를 준다. 그 외 CLI는 채팅으로 묻는다. 수정은 "review를 claude opus high로"처럼 행 단위로 받고, 반영한 표를 다시 보여준 뒤 다시 묻는다. 확인될 때까지 반복한다.
-4. 검증한다. 모든 행의 agent가 설치됨. effort가 그 agent의 허용 값. review의 agent+model이 impl-high, impl-mid, impl-low 어느 것과도 다름. 하나라도 틀리면 틀린 값이 들어간 표를 이유와 함께 보여주고 3번으로 돌아간다.
+4. 검증한다. 모든 행의 agent가 설치됨. effort가 그 agent의 허용 값. review의 agent+model이 impl-high, impl-mid, impl-low 어느 것과도 다름. plan-review의 agent+model이 planner와 다름. 하나라도 틀리면 틀린 값이 들어간 표를 이유와 함께 보여주고 3번으로 돌아간다.
 5. `.harness/config.json`에 저장한다. `custom` agent 행은 `"command"`와 `"clear"`를 함께 적는다.
 
 ```json
@@ -96,6 +98,8 @@ command -v claude codex agent gemini kimi grok                                  
   "test_command": "npm test",
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
+    "planner":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
+    "plan-review":  { "agent": "claude", "model": "fable",       "effort": "xhigh" },
     "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
     "impl-mid":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
     "impl-low":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
@@ -129,29 +133,35 @@ echo $ORCA_TERMINAL_HANDLE      # = <me>. PowerShell은 $env:ORCA_TERMINAL_HANDL
 
 codex를 쓰는 역할이 하나라도 있으면, 이 저장소에서 codex를 한 번 실행해 trust 대화상자("Do you trust the contents of this directory?")를 미리 넘겨 둔다. 신뢰하지 않은 저장소에서는 모든 codex pane이 이 대화상자에서 멈추고, Orca는 그 상태의 터미널에 보내는 `terminal send`를 `agent_prompt_blocked`로 거부하므로 사용자가 직접 눌러야만 풀린다.
 
-### 3. 분석
+### 3. 분석 (planner + plan-review)
 
-config의 docs를 전부 읽고 하나의 Task 목록을 만든다. 문서 제목은 첫 H1이고, 없으면 파일명이다. 문서끼리 요구가 충돌하면 Task를 만들기 전에 사용자에게 묻는다. Task 하나는 worker 하나가 한 번에 끝낼 수 있는 단위다.
-각 Task spec은 Source(출처 문서 경로) / Target / Change / Constraints / Ownership(수정 가능한 파일) / Acceptance(검증 명령)를 반드시 포함하고, 마지막에 7절의 구현 템플릿을 그대로 붙인다.
-spec에 tier와 모델 이름은 적지 않는다.
+orchestrator는 Task 목록을 직접 만들지 않는다. planner가 계획을 세우고 plan-review가 검증한다. orchestrator는 dispatch와 판정만 한다.
 
-의존 관계: B가 A의 결과를 쓰거나 A와 같은 파일을 수정하면 B는 A에 의존한다. 문서가 달라도 같다. 파일이 겹치는데 논리 순서가 없으면 tier가 낮은 쪽을 앞에 둔다. 겹치지 않으면 순서가 없다. 의존하는 Task는 4절에서 만들지 않고, 선행 Task 전부의 review가 `succeeded`된 시점에 `--deps '["<선행 task_id>"]'`로 task-create 한다. 그래야 재작업 중인 Task와 같은 파일을 동시에 건드리지 않는다.
+**빠른 판정.** 먼저 orchestrator가 docs를 훑어 대략의 Task 수를 본다. Task가 2개 이하이고 전부 low로 보이면 하네스의 고정 비용(계획, pane, review, qa, approve)이 작업보다 크다. "하네스 없이 이 세션에서 직접 진행할까요?"를 묻는다. 직접 진행을 고르면 orchestrator가 그 자리에서 구현하고 Acceptance를 실행하고 커밋한 뒤 끝낸다. "자동"이면 묻지 않고 하네스로 진행한다. 그 외에는 아래 계획 단계로 간다.
 
-분석 결과를 `| # | tier | doc | title | files | deps |` 표로 사용자에게 보여주고 확인을 받는다. 사용자가 "자동" 또는 "바로 실행"이라고 했으면 확인 없이 진행한다.
+**계획.** planner를 새 탭에 띄우고(4절 탭 절차) 계획 템플릿을 spec으로 준다. planner는 docs를 읽고 `.harness/plan-<회차>.md`에 Task 목록과 분해 근거를 쓴다. 각 Task는 Source(출처 문서 경로) / Target / Change / Constraints / Ownership(수정 가능한 파일) / Acceptance(검증 명령) / Deps / Rationale(이 Task로 쪼갠 이유)를 포함한다. tier와 모델 이름은 적지 않는다.
 
-Task가 2개 이하이고 전부 low면 하네스의 고정 비용(pane, review, qa, approve)이 작업보다 크다. 표와 함께 "하네스 없이 이 세션에서 직접 진행할까요?"를 같이 묻는다. 직접 진행을 고르면 orchestrator가 그 자리에서 구현하고 Acceptance를 실행하고 커밋한 뒤 끝낸다. "자동"이면 묻지 않고 하네스로 진행한다.
+의존 관계 규칙(planner가 따르고 plan-review가 검증): B가 A의 결과를 쓰거나 A와 같은 파일을 수정하면 B는 A에 의존한다. 문서가 달라도 같다. 파일이 겹치는데 논리 순서가 없으면 tier가 낮은 쪽을 앞에 둔다. 겹치지 않으면 순서가 없다.
+
+**계획 검증.** plan-review를 새 탭에 띄우고 plan-review 템플릿과 planner의 계획 경로를 준다. `failed`면 리포트의 blocking 사유를 planner 계획에 붙여 재작업 계획을 만들고 다시 검증한다. 재작업은 최대 10회다. plan-review 리포트의 blocking 사유를 회차마다 기록하고, 같은 사유가 3회 반복되면 10회 전이라도 멈추고 사용자에게 올린다. 같은 사유는 같은 요구사항 항목이나 같은 파일을 두고 같은 지적이 반복되는 것을 뜻한다.
+
+**확정.** plan-review가 `succeeded`면 계획의 Task를 `| # | tier | doc | title | files | deps |` 표로 사용자에게 보여주고 확인을 받는다. 사용자가 "자동" 또는 "바로 실행"이라고 했으면 확인 없이 진행한다.
 
 ### 4. Run과 Task 생성
 
+확정된 `.harness/plan-<회차>.md`의 각 Task 본문을 그대로 가져와 spec으로 쓴다. spec 끝에 7절의 구현 템플릿을 붙인다.
+
 ```text
 orca orchestration run-create --objective "<문서 제목들을 + 로 이은 것>" --json
-orca orchestration task-create --spec "<Task 본문>" --task-title "[high] <title>" --deps '[]' --json
+orca orchestration task-create --spec "<계획의 Task 본문 + 구현 템플릿>" --task-title "[high] <title>" --deps '[]' --json
 orca orchestration task-list --ready --brief --json
 ```
 
-제목 형식: 구현 `[high] <title>`, 재작업 `[mid] <title> (rework 1)`, 리뷰 `[review] <title>`, `[qa] <objective>`, `[approve] <objective>`.
+제목 형식: 구현 `[high] <title>`, 재작업 `[mid] <title> (rework 1)`, 리뷰 `[review] <title>`, `[qa] <objective>`, `[approve] <objective>`. 계획은 `[plan] <objective> (round <회차>)`, 계획 검증은 `[plan-review] <objective> (round <회차>)`.
 
-run_id, tier별 pane handle, 각 pane의 현재 dispatch_id, qa·approve 회차를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구해 6절부터 이어 간다.
+의존하는 Task는 여기서 만들지 않고, 선행 Task 전부의 review가 `succeeded`된 시점에 `--deps '["<선행 task_id>"]'`로 task-create 한다. 그래야 재작업 중인 Task와 같은 파일을 동시에 건드리지 않는다.
+
+run_id, tier별 pane handle, 각 pane의 현재 dispatch_id, qa·approve 회차, 계획 회차와 회차별 blocking 사유를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구해 6절부터 이어 간다.
 
 ### 5. 배치
 
@@ -216,16 +226,38 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다.
 
 ### 7. 단계별 Task 규칙
 
-**implement → review → qa → approve** 순서로 흐른다. 각 단계는 앞 단계 Task를 `--deps`로 건다.
+**plan → plan-review → implement → review → qa → approve** 순서로 흐른다. plan과 plan-review는 3절에서 이미 돌았다. 나머지 각 단계는 앞 단계 Task를 `--deps`로 건다. 모든 역할은 판단의 근거를 리포트나 worker_done body에 남긴다. 그래야 다음 단계가 검증할 수 있다.
 
 1. **review** (구현 Task마다 1개, `review` 역할): 구현 Task가 `succeeded`면 만든다. spec에 구현 Task의 spec 전문과 커밋 sha를 넣고 review 템플릿을 붙인다.
    `failed`면 리포트 경로를 spec에 붙인 재작업 Task를 새로 만들고 tier를 한 단계 올려 다시 투입한다. 같은 Task의 재작업은 최대 2회다. 그 뒤에는 사용자에게 올린다. 답을 기다리는 동안 그 Task는 보류하고, 그 pane에는 다른 ready Task를 넣거나 retain한다. 후속 Task는 deps 때문에 ready가 되지 않으므로 그대로 둔다. 사용자가 결정하면 재작업 Task를 만들거나, 그 Task와 후속 Task를 제외하고 진행한다.
 2. **qa** (전체 1개, `qa` 역할): 모든 review가 `succeeded`면 만든다. spec에 config의 docs 전부와 전체 테스트·빌드 명령을 넣고 qa 템플릿을 붙인다. `failed`면 리포트의 항목별로 재작업 Task를 만든다.
 3. **approve** (전체 1개, `approve` 역할): qa가 `succeeded`면 만든다. spec에 config의 docs 전부와 review·qa 리포트 경로를 넣고 approve 템플릿을 붙인다. `failed`면 사유별로 재작업 Task를 만들어 1번부터 반복한다.
 
-리포트 경로는 `.harness/reports/<구현 task_id>-review.md`, `.harness/reports/qa-<회차>.md`, `.harness/reports/approve-<회차>.md`다. 회차는 1부터 세고, qa와 approve를 새로 만들 때마다 각각 1씩 올린다. `.harness/`는 커밋하지 않는다.
+리포트 경로는 `.harness/plan-<회차>.md`, `.harness/reports/plan-<회차>-review.md`, `.harness/reports/<구현 task_id>-review.md`, `.harness/reports/qa-<회차>.md`, `.harness/reports/approve-<회차>.md`다. 회차는 1부터 세고, 각 단계를 새로 만들 때마다 그 단계 회차를 1씩 올린다. `.harness/`는 커밋하지 않는다.
 
 **역할별 spec 템플릿.** 아래 블록을 spec 끝에 그대로 붙인다. `<...>`는 orchestrator가 채운다. "묻는다"는 dispatch preamble이 알려주는 질문 방법을 뜻한다.
+
+plan:
+
+```text
+규칙
+- 코드를 수정하지 않는다. docs를 읽고 구현 계획만 세운다.
+- 요구사항 문서의 모든 항목이 최소 하나의 Task에 담기게 한다. 빠진 항목이 없어야 한다.
+- Task 하나는 worker 하나가 한 번에 끝낼 수 있는 단위다. 각 Task에 Source / Target / Change / Constraints / Ownership / Acceptance / Deps / Rationale을 적는다. Rationale은 이 경계로 쪼갠 이유다.
+- tier와 모델 이름은 적지 않는다.
+- 계획을 `.harness/plan-<회차>.md`에 쓰고 worker_done의 --report-path로 제출한다. body에 요구사항 항목과 Task의 대응 표(항목 → task)를 적는다.
+- 앞 회차의 plan-review 리포트가 주어지면 그 blocking 사유를 먼저 해소한다.
+```
+
+plan-review:
+
+```text
+규칙
+- 코드도 계획도 수정하지 않는다. `.harness/plan-<회차>.md`를 docs와 대조해 검증한다.
+- 확인 순서: (1) 요구사항 문서의 모든 항목이 Task로 덮이는가(누락). (2) 각 Task의 Ownership이 겹치는데 Deps가 없는가. (3) Deps가 실제 데이터·파일 의존과 맞는가. (4) Acceptance가 그 Change를 실제로 검증하는가. (5) 한 Task가 너무 커서 쪼개야 하는가.
+- 지적은 `대상(task 또는 항목) | blocking 또는 minor | 문제 | 근거` 형식으로 `.harness/reports/plan-<회차>-review.md`에 쓰고 --report-path로 제출한다.
+- blocking이 하나라도 있으면 --outcome failed, 없으면 succeeded. body 첫 줄에 blocking 사유를 한 문장으로 요약한다(회차 비교용).
+```
 
 구현:
 
@@ -236,7 +268,7 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다.
 - Acceptance 명령을 실제로 실행한다. 통과시키려고 테스트나 기대값을 고치지 않는다.
 - 명세가 불명확한 지점은 추측하지 말고 묻는다.
 - 완료 시 Ownership 파일만 `git commit -m '<task_id>: <title>'`으로 커밋한다. index.lock 오류면 몇 초 뒤 다시 시도한다.
-- worker_done body에 커밋 sha, 실행한 Acceptance 명령과 출력 마지막 10줄, 하지 않은 것을 적는다.
+- worker_done body에 커밋 sha, 실행한 Acceptance 명령과 출력 마지막 10줄, 주요 구현 선택과 그 근거, 하지 않은 것을 적는다.
 ```
 
 review:
@@ -286,7 +318,7 @@ orca orchestration worker-list --terminal-state reclaimable --json
 
 ## 규칙
 
-- 리뷰어는 구현자와 다른 모델이어야 한다. 설정을 바꿀 때도 이 조건은 유지한다.
+- 리뷰어는 검토 대상과 다른 모델이어야 한다. review는 구현자와, plan-review는 planner와 다른 모델을 쓴다. 설정을 바꿀 때도 이 조건은 유지한다.
 - worker는 `--worktree current`로 같은 checkout에서 일한다. 파일 소유권이 겹치는 Task를 동시에 돌리지 않는다. tier나 출처 문서가 달라도 같다.
 - tier별 pane handle과 각 pane의 현재 dispatch_id는 `.harness/state.json`이 기준이다. handle이 `terminal_handle_stale`이면 `orca terminal list --worktree current --json`으로 다시 찾는다.
 - `worker-start`가 실패하면 재실행하지 않는다. receipt의 `failedStage`를 읽고 `orca skills get orchestration --reference references/recovery-and-cleanup.md`를 따른다.
