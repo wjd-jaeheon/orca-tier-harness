@@ -1,6 +1,7 @@
 {
   "docs": ["docs/prd-todo.md"],
   "test_command": "npm test",
+  "setup_command": "npm ci",
   "max_workers_per_tier": 3,
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
