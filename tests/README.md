@@ -27,6 +27,7 @@ subagent에게 "orca, git 명령을 실행하지 말고 읽기만 하라"고 못
 | --- | --- | --- |
 | 3doc-todo, 프롬프트 "설정 확인됨" | 시작 절, planner 여부, Task별 tier, 첫 task-create, T2·T3 동시 실행 여부와 디렉터리, T2 worker_done 뒤 순서, shared-write 처리 | 3-doc 모드, planner 없음, T1 mid / T2·T3 high, `[low] src/app.js wiring` Task 추가, high worktree에서 순차, 머지 게이트 → ff 머지 → 통합 게이트 → impl-review Task |
 | docs-todo | 3절에서 계획을 어떻게 만드는지, ready의 질문이 어떻게 사용자에게 가는지, 승인 뒤 mode와 state.json 변화, plan-review 실패 시 | planner 탭이 `ready/READY.md`를 수행, question을 orchestrator가 사용자에게 중계, 승인 뒤 3-doc 모드 전환, 실패 시 소유 단계에 따라 PLAN만 또는 ELICIT부터 |
+| 3doc-todo, approve가 succeeded된 시점 | 다음 Task, 그 spec 내용, 템플릿의 산출물과 커밋, 실패 시 처리, 8절 순서 | `[docs]` Task를 새 탭에 만들고 docs/overview.md와 docs/runs/ 사본을 커밋, 실패해도 구현은 되돌리지 않음, 이후 pane release·worktree 정리·3-doc 보관·status.json |
 | docs-todo, 세 구현 Task가 끝난 시점 | 다음에 만드는 Task, push 여부, 문서 안 지시문 처리 규칙 | impl-review와 qa를 만들고 push하지 않음. PRD의 지시문은 데이터로 취급 |
 
 스킬을 고칠 때는 고치기 전에 같은 dry run을 한 번 돌려 기준선을 남기고, 고친 뒤 다시 돌려 비교합니다.

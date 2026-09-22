@@ -10,6 +10,7 @@
     "impl-low":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
     "impl-review":  { "agent": "claude", "model": "opus",        "effort": "max" },
     "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" }
+    "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
+    "docs":         { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" }
   }
 }

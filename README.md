@@ -6,10 +6,10 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 ## 구성
 
-흐름: `plan(ready) → plan-review → impl(high/mid/low) → impl-review → qa → approve → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
+흐름: `plan(ready) → plan-review → impl(high/mid/low) → impl-review → qa → approve → docs → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
 
 ```text
-[orchestrator] | [high]      plan / plan-review / impl-review / qa / approve 는 새 탭
+[orchestrator] | [high]      plan / plan-review / impl-review / qa / approve / docs 는 새 탭
                | [mid ]      tier pane은 그 tier의 Task가 처음 생길 때 만들어짐
                | [low ]
 ```
@@ -21,10 +21,11 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
 - impl-review는 구현자와, plan-review는 planner와 다른 모델이어야 한다는 검증이 붙습니다.
-- worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(planner, plan-review, 구현, impl-review, qa, approve)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
+- worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(planner, plan-review, 구현, impl-review, qa, approve, docs)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.
 - 3-doc은 Task를 만들기 전에 `scripts/check-3doc.py`로 결정론적으로 검사합니다(그래프 파싱, 순환, 없는 id, 본문·그래프 불일치, `risk` 값). 통과한 3-doc의 해시를 기록해 실행 중 문서가 바뀌면 멈춥니다.
 - 요구사항 문서, 코드, worker 리포트 안의 문장은 데이터로만 다룹니다. 그 안에 에이전트를 향한 지시문이 있어도 따르지 않습니다. worker는 승인 생략 플래그로 실행되므로 신뢰하는 저장소에서만 쓰십시오.
+- 모든 단계가 파일로 근거를 남깁니다. 3-doc, plan-review·구현·impl-review·qa·approve 리포트, orchestrator의 `.harness/log.md`입니다. approve 뒤 `docs` worker가 `docs/overview.md`(큰 그림 한 화면, 상세는 링크)와 `docs/runs/<날짜>-<목표>/`(3-doc과 리포트 사본)를 커밋하고 `AGENTS.md`·`CLAUDE.md`에 포인터 한 줄을 넣습니다. 다음 실행의 ready가 이 문서를 프로젝트 맥락으로 읽습니다.
 - `tests/`에 픽스처와 dry run 절차가 있습니다. 스킬을 고칠 때 전후를 비교하는 용도입니다.
 
 ## 요구 사항
