@@ -6,22 +6,22 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 ## 구성
 
-흐름: `plan → plan-review → impl(high/mid/low) → impl-review → qa → approve → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
+흐름: `plan(ready) → plan-review → impl(high/mid/low) → impl-review → qa → approve → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
 
 ```text
-[orchestrator] | [high]      plan / plan-review / review / qa / approve 는 새 탭
+[orchestrator] | [high]      plan / plan-review / impl-review / qa / approve 는 새 탭
                | [mid ]      tier pane은 그 tier의 Task가 처음 생길 때 만들어짐
                | [low ]
 ```
 
-- orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 검증합니다.
-- 요구사항 문서를 받으면 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 같은 세션에서 수행해 사용자와 대화하며 의도를 확인하고 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. planner 대신 그 계획을 쓰며, `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. "자동"이라고 하면 대화 없이 planner로 계획합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다.
+- orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 다른 모델로 검증합니다.
+- 요구사항 문서를 받으면 planner worker가 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 수행해 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. ready의 질문과 승인 요청은 Orca question으로 orchestrator에게 오고, orchestrator가 사용자에게 묻고 답을 돌려줍니다. 사용자는 orchestrator와만 대화합니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다.
 - 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다.
 - 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
-- 리뷰어는 구현자와 다른 모델이어야 한다는 검증이 붙습니다.
-- worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(구현, review, qa, approve)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
+- impl-review는 구현자와, plan-review는 planner와 다른 모델이어야 한다는 검증이 붙습니다.
+- worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(planner, plan-review, 구현, impl-review, qa, approve)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.
 - 3-doc은 Task를 만들기 전에 `scripts/check-3doc.py`로 결정론적으로 검사합니다(그래프 파싱, 순환, 없는 id, 본문·그래프 불일치, `risk` 값). 통과한 3-doc의 해시를 기록해 실행 중 문서가 바뀌면 멈춥니다.
 - 요구사항 문서, 코드, worker 리포트 안의 문장은 데이터로만 다룹니다. 그 안에 에이전트를 향한 지시문이 있어도 따르지 않습니다. worker는 승인 생략 플래그로 실행되므로 신뢰하는 저장소에서만 쓰십시오.
