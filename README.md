@@ -22,7 +22,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 시작 전에 base checkout이 깨끗한지 확인하고, base가 main이면 경고합니다. tier worktree를 만들면 `setup_command`(의존성 설치)를 한 번 실행합니다. 새 프로젝트라 plan에 초기화가 없으면 `[high] scaffold` Task를 맨 앞에 넣습니다. 실패한 Task의 코드는 `harness/failed/<task_id>` 브랜치로 남깁니다.
 - tier마다 worker 1개로 시작해 ready Task가 쌓이면 `max_workers_per_tier`(기본 3)까지 늘립니다. 한 checkout에서는 실행 하나만 돌고(`.harness/state.json`의 status로 잠금), 여러 프로젝트를 병렬로 하려면 Orca worktree를 따로 만들어 각자 실행합니다.
-- 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
+- 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 역할에 `fallback`을 두면 한도 메시지가 뜰 때 그 모델로 바꿔 띄웁니다. 기본은 orchestrator fable의 fallback이 opus입니다. 실행 중인 orchestrator가 한도에 걸리면 opus로 새 세션을 열어 `/tier-harness`를 다시 부르면 이어서 진행합니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
 - impl-review는 구현자와, plan-review는 planner와 다른 모델이어야 한다는 검증이 붙습니다.
 - worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(planner, plan-review, 구현, impl-review, qa, approve, docs)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.

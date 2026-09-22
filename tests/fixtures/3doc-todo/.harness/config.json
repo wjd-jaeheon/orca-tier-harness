@@ -5,7 +5,8 @@
   "max_workers_per_tier": 3,
   "review_batch_size": 5,
   "roles": {
-    "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
+    "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh",
+                      "fallback": { "agent": "claude", "model": "opus", "effort": "max" } },
     "planner":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
     "plan-review":  { "agent": "claude", "model": "opus",        "effort": "max" },
     "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
