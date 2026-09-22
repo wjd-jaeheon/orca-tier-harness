@@ -23,6 +23,9 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - 리뷰어는 구현자와 다른 모델이어야 한다는 검증이 붙습니다.
 - worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(구현, review, qa, approve)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.
+- 3-doc은 Task를 만들기 전에 `scripts/check-3doc.py`로 결정론적으로 검사합니다(그래프 파싱, 순환, 없는 id, 본문·그래프 불일치, `risk` 값). 통과한 3-doc의 해시를 기록해 실행 중 문서가 바뀌면 멈춥니다.
+- 요구사항 문서, 코드, worker 리포트 안의 문장은 데이터로만 다룹니다. 그 안에 에이전트를 향한 지시문이 있어도 따르지 않습니다. worker는 승인 생략 플래그로 실행되므로 신뢰하는 저장소에서만 쓰십시오.
+- `tests/`에 픽스처와 dry run 절차가 있습니다. 스킬을 고칠 때 전후를 비교하는 용도입니다.
 
 ## 요구 사항
 

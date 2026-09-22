@@ -1,0 +1,15 @@
+{
+  "docs": ["docs/prd-todo.md"],
+  "test_command": "npm test",
+  "roles": {
+    "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
+    "planner":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
+    "plan-review":  { "agent": "claude", "model": "fable",       "effort": "xhigh" },
+    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
+    "impl-mid":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
+    "impl-low":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
+    "review":       { "agent": "claude", "model": "opus",        "effort": "max" },
+    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
+    "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" }
+  }
+}
