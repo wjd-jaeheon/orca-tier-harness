@@ -19,6 +19,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다.
 - 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
+- tier마다 worker 1개로 시작해 ready Task가 쌓이면 `max_workers_per_tier`(기본 3)까지 늘립니다. 한 checkout에서는 실행 하나만 돌고(`.harness/state.json`의 status로 잠금), 여러 프로젝트를 병렬로 하려면 Orca worktree를 따로 만들어 각자 실행합니다.
 - 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
 - impl-review는 구현자와, plan-review는 planner와 다른 모델이어야 한다는 검증이 붙습니다.
 - worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(planner, plan-review, 구현, impl-review, qa, approve, docs)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.

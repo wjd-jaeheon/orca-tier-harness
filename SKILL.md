@@ -63,7 +63,7 @@ command -v claude codex agent gemini kimi grok                                  
 | ------------ | ------ | ----------- | ------ | --------------------- |
 | orchestrator | claude | fable       | xhigh  | 사용자와 대화하는 유일한 역할 |
 | planner      | codex  | gpt-6-astra | max    | ready 절차 수행. 질문은 orchestrator가 중계 |
-| plan-review  | claude | fable       | xhigh  | planner와 다른 모델   |
+| plan-review  | claude | opus        | max    | planner와 다른 모델   |
 | impl-high    | codex  | gpt-6-astra | max    |                       |
 | impl-mid     | kimi   | kimi-code/k3 | -     | thinking on           |
 | impl-low     | kimi   | kimi-code/k3 | -     | thinking on           |
@@ -98,16 +98,17 @@ command -v claude codex agent gemini kimi grok                                  
 2. 기본 라우팅을 설치된 agent만으로 채운 제안 표를 만든다. 설치된 agent 목록과 함께 보여준다.
 3. 사용자에게 묻는다. Claude Code면 AskUserQuestion으로 "표대로 진행 / 수정" 두 선택지를 준다. 그 외 CLI는 채팅으로 묻는다. 수정은 "impl-review를 claude opus high로"처럼 행 단위로 받고, 반영한 표를 다시 보여준 뒤 다시 묻는다. 확인될 때까지 반복한다.
 4. 검증한다. 모든 행의 agent가 설치됨. effort가 그 agent의 허용 값. impl-review의 agent+model이 impl-high, impl-mid, impl-low 어느 것과도 다름. plan-review의 agent+model이 planner와 다름. 하나라도 틀리면 틀린 값이 들어간 표를 이유와 함께 보여주고 3번으로 돌아간다.
-5. `.harness/config.json`에 저장한다. `custom` agent 행은 `"command"`와 `"clear"`를 함께 적는다.
+5. `.harness/config.json`에 저장한다. `custom` agent 행은 `"command"`와 `"clear"`를 함께 적는다. `max_workers_per_tier`는 tier당 동시 worker 상한이며 기본 3이다. 사용자가 말하지 않으면 묻지 않고 기본값을 적는다.
 
 ```json
 {
   "docs": ["docs/prd-auth.md", "docs/prd-billing.md"],
   "test_command": "npm test",
+  "max_workers_per_tier": 3,
   "roles": {
     "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh" },
     "planner":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "plan-review":  { "agent": "claude", "model": "fable",       "effort": "xhigh" },
+    "plan-review":  { "agent": "claude", "model": "opus",        "effort": "max" },
     "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
     "impl-mid":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
     "impl-low":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
@@ -139,6 +140,8 @@ echo $ORCA_TERMINAL_HANDLE      # = <me>. PowerShell은 $env:ORCA_TERMINAL_HANDL
 ```
 
 `--terminal`을 생략하면 UI에서 선택된 터미널을 가리키므로, 모든 terminal 명령에 handle을 명시한다.
+
+실행 잠금을 확인한다. `.harness/state.json`이 있고 `status`가 `running`이면 이 checkout에서 이전 실행이 끝나지 않은 것이다. 사용자에게 "이어서 진행 / 새로 시작"을 묻는다. 이어서 진행이면 4절의 복구 절차로 간다. 새로 시작이면 `.dryforge/`의 3-doc을 `.dryforge/aborted-<YYYYMMDDHHMM>/`로 옮기고 state.json을 지운다. 같은 checkout에서 두 실행을 동시에 돌리지 않는다. 프로젝트나 기능을 병렬로 진행하려면 Orca worktree를 하나씩 따로 만들어 각 worktree에서 이 스킬을 실행한다. checkout마다 `.dryforge/`와 `.harness/`가 따로 생기므로 서로 섞이지 않는다. 시작하면 state.json의 `status`를 `running`으로 적는다.
 
 base 브랜치를 정한다. orchestrator checkout의 현재 브랜치(`git branch --show-current`)가 base이고, 모든 머지와 통합 게이트는 여기서 한다. `.harness/state.json`에 `"base"`로 적는다. `.gitignore`에 `.harness/`와 `.dryforge/`가 없으면 추가하고 base에 커밋한다. 5절의 tier worktree가 이 아래에 생기므로 무시하지 않으면 untracked로 잡힌다.
 
@@ -193,7 +196,7 @@ orca orchestration task-list --ready --brief --json
 
 의존하는 Task는 여기서 만들지 않고, 선행 Task 전부의 impl-review가 `succeeded`된 시점에 `--deps '["<선행 task_id>"]'`로 task-create 한다. 그래야 재작업 중인 Task와 같은 파일을 동시에 건드리지 않는다.
 
-mode, base 브랜치, run_id, tier별 pane handle과 worktree 경로, 각 pane의 현재 dispatch_id, 계획의 task id(3-doc 모드의 `T1` 등)와 Orca task_id의 대응, 마지막 통합 게이트를 통과한 base 커밋 sha, qa·approve 회차, 계획 회차, Task별 재작업 회차, 그리고 계획과 Task별 재작업의 회차별 blocking 사유를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구하고 `.harness/log.md`의 마지막 줄들로 직전 맥락을 확인해 6절부터 이어 간다. 3-doc 모드면 복구할 때와 새 Task를 만들기 전에 `check-3doc.py --hash`를 다시 계산해 state.json의 `doc_hash`와 비교한다. 다르면 실행 중에 누군가 3-doc을 고친 것이므로 Task를 더 만들지 않고 사용자에게 올린다.
+status(`running`, `done`, `aborted`), mode, base 브랜치, run_id, tier별 pane handle과 worktree 경로, 각 pane의 현재 dispatch_id, 계획의 task id(3-doc 모드의 `T1` 등)와 Orca task_id의 대응, 마지막 통합 게이트를 통과한 base 커밋 sha, qa·approve 회차, 계획 회차, Task별 재작업 회차, 그리고 계획과 Task별 재작업의 회차별 blocking 사유를 `.harness/state.json`에 바뀔 때마다 덮어쓴다. 컨텍스트가 비거나 세션이 다시 시작되면 이 파일과 `orca orchestration task-list --json`, `orca orchestration worker-list --json`으로 상태를 복구하고 `.harness/log.md`의 마지막 줄들로 직전 맥락을 확인해 6절부터 이어 간다. 3-doc 모드면 복구할 때와 새 Task를 만들기 전에 `check-3doc.py --hash`를 다시 계산해 state.json의 `doc_hash`와 비교한다. 다르면 실행 중에 누군가 3-doc을 고친 것이므로 Task를 더 만들지 않고 사용자에게 올린다.
 
 ### 5. 배치
 
@@ -234,7 +237,7 @@ orca orchestration worker-start --task <task_id> --worktree current --terminal <
 
 - 첫 투입에는 초기화가 필요 없다. 두 번째 Task부터 이전 Task의 컨텍스트를 비우기 위해 보낸다. `reset --hard`는 첫 투입에도 한다.
 - `wait` 결과의 `satisfied`가 `true`이고 `orca terminal read --terminal <pane> --json`의 마지막 화면이 agent 입력 프롬프트일 때만 `worker-start`를 호출한다. `blockedReason`이 `agent-interactive-prompt`이거나 화면에 확인 대화상자·로그인 화면이 떠 있으면 사용자에게 보고하고 사용자가 넘길 때까지 기다린다. 그 터미널에 `terminal send`를 보내도 `agent_prompt_blocked`로 거부된다. `satisfied`가 `false`면 timeout을 두 배로 한 번 더 기다리고, 그래도 안 되면 사용자에게 보고한다.
-- 동시 실행은 tier당 1개, 기본 3개다. 같은 tier의 ready Task가 3개 이상 쌓이면 worktree를 하나 더 만들고(`.harness/worktrees/<tier>-2`, 브랜치 `harness/<tier>-2`) 그 pane을 `--direction vertical`로 한 번 더 나눠 그 tier의 worker를 하나 더 둔다. 그 외에는 나누지 않는다.
+- 동시 실행은 tier당 worker 1개로 시작한다. 같은 tier의 ready Task 수가 그 tier의 현재 worker 수의 2배 이상이고 worker 수가 config의 `max_workers_per_tier`(기본 3) 미만이면 worktree를 하나 더 만들고(`.harness/worktrees/<tier>-<n>`, 브랜치 `harness/<tier>-<n>`, n은 2부터) 그 tier의 pane을 `--direction vertical`로 한 번 더 나눠 worker를 하나 더 둔다. 상한에 닿았거나 ready가 적으면 나누지 않는다. Ownership이 겹치는 Task는 Deps 때문에 동시에 ready가 되지 않으므로 worker를 늘려도 같은 파일을 동시에 건드리지 않는다. 늘어나는 것은 pane 수와 agent CLI의 요율 제한 부담이다. 화면이 좁거나 요율 제한에 걸리면 config에서 상한을 1이나 2로 낮춘다.
 
 **impl-review / qa / approve는 새 탭이다.** 탭은 Task마다 만들고 끝나면 닫는다.
 
@@ -389,11 +392,11 @@ orca orchestration worker-list --terminal-state reclaimable --json
 
 두 번째 명령의 결과가 비어야 끝난다. 그 다음 tier worktree를 정리한다. 브랜치마다 `git merge-base --is-ancestor harness/<tier> <base>`가 참일 때만 `git worktree remove .harness/worktrees/<tier>`와 `git branch -d harness/<tier>`를 한다. 머지되지 않은 커밋이 남은 worktree는 지우지 않고 경로와 sha를 보고한다.
 
-3-doc 모드면 `.dryforge/handoff.md`, `spec.md`, `plan.md`를 `.dryforge/<NNN>/`(기존 번호 디렉터리 중 가장 큰 값 + 1, 세 자리, 없으면 `001`)로 옮기고, `.dryforge/status.json`이 없으면 `{ "initialized": true }`로 만든다. 그래야 다음 `ready`가 첫 사이클 질문을 반복하지 않고 delta로 돈다.
+3-doc 모드면 `.dryforge/handoff.md`, `spec.md`, `plan.md`를 `.dryforge/<NNN>/`(기존 번호 디렉터리 중 가장 큰 값 + 1, 세 자리, 없으면 `001`)로 옮기고, `.dryforge/status.json`이 없으면 `{ "initialized": true }`로 만든다. 그래야 다음 `ready`가 첫 사이클 질문을 반복하지 않고 delta로 돈다. state.json의 `status`를 `done`으로 적는다.
 
 사용자에게 문서별, Task별로 결과, 증거(테스트 출력이나 리포트 경로), 미해결 항목, 그리고 `docs/overview.md`와 `docs/runs/...` 경로를 보고한다.
 
-사용자가 중간에 중단을 요청하면 진행 중인 dispatch마다 `send --to dispatch:<id>`로 "커밋하지 말고 멈춰라"를 보낸 뒤, 위와 같은 순서로 pane과 탭을 정리하고 남은 Task와 마지막 커밋 sha를 보고한다. `.harness/state.json`과 tier worktree는 남겨 둔다.
+사용자가 중간에 중단을 요청하면 진행 중인 dispatch마다 `send --to dispatch:<id>`로 "커밋하지 말고 멈춰라"를 보낸 뒤, 위와 같은 순서로 pane과 탭을 정리하고 남은 Task와 마지막 커밋 sha를 보고한다. `.harness/state.json`은 `status`를 `aborted`로 바꿔 남기고 tier worktree도 남겨 둔다.
 
 ## 규칙
 
