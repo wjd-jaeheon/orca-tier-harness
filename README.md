@@ -16,6 +16,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 - orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 다른 모델로 검증합니다.
 - 요구사항 문서를 받으면 planner worker가 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 수행해 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. ready의 질문과 승인 요청은 Orca question으로 orchestrator에게 오고, orchestrator가 사용자에게 묻고 답을 돌려줍니다. 사용자는 orchestrator와만 대화합니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다.
+- 검토 단위는 의존 그래프가 정합니다. 후속 Task가 있는 high Task만 머지 직후 단독 검토하고 후속을 막습니다. 그 외 high와 mid는 `review_batch_size`(기본 5)개씩 묶어 검토하고 후속은 바로 진행합니다. low는 qa가 커밋을 점검합니다. 리뷰어 탭은 실행당 하나를 재사용하고, qa는 요구사항이 많으면 묶음으로 나눕니다.
 - 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다.
 - 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
