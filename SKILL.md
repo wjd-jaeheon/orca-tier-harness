@@ -253,7 +253,7 @@ orca orchestration worker-start --task <task_id> --worktree current --terminal <
 - `wait` 결과의 `satisfied`가 `true`이고 `orca terminal read --terminal <pane> --json`의 마지막 화면이 agent 입력 프롬프트일 때만 `worker-start`를 호출한다. `blockedReason`이 `agent-interactive-prompt`이거나 화면에 확인 대화상자·로그인 화면이 떠 있으면 사용자에게 보고하고 사용자가 넘길 때까지 기다린다. 그 터미널에 `terminal send`를 보내도 `agent_prompt_blocked`로 거부된다. `satisfied`가 `false`면 timeout을 두 배로 한 번 더 기다리고, 그래도 안 되면 사용자에게 보고한다. 화면이나 worker의 첫 turn에 usage limit, rate limit, quota 같은 한도 메시지가 뜨면 그 역할에 `fallback`이 있을 때 그 pane이나 탭을 닫고 fallback 명령으로 다시 띄운다. config는 바꾸지 않고 state.json의 `effective_roles`에 적으며, 그 역할은 실행이 끝날 때까지 fallback을 쓴다. fallback이 없으면 사용자에게 올린다.
 - 동시 실행은 tier당 worker 1개로 시작한다. 같은 tier의 ready Task 수가 그 tier의 현재 worker 수의 2배 이상이고 worker 수가 config의 `max_workers_per_tier`(기본 3) 미만이면 worktree를 하나 더 만들고(`.harness/worktrees/<tier>-<n>`, 브랜치 `harness/<tier>-<n>`, n은 2부터) 그 tier의 pane을 `--direction vertical`로 한 번 더 나눠 worker를 하나 더 둔다. 상한에 닿았거나 ready가 적으면 나누지 않는다. Ownership이 겹치는 Task는 Deps 때문에 동시에 ready가 되지 않으므로 worker를 늘려도 같은 파일을 동시에 건드리지 않는다. 늘어나는 것은 pane 수와 agent CLI의 요율 제한 부담이다. 화면이 좁거나 요율 제한에 걸리면 config에서 상한을 1이나 2로 낮춘다.
 
-**plan-review, qa, approve, docs는 새 탭이다.** Task마다 만들고 끝나면 닫는다. 다만 qa Task가 여러 개면(7절 2번의 분할) 첫 qa 탭을 retain해 순서대로 재사용한다.
+**planner, plan-review, qa, approve, docs는 새 탭이다.** Task마다 만들고 끝나면 닫는다. 예외가 둘이다. planner 탭은 실행당 하나로, plan 재작업 회차 사이에는 `worker-retain`으로 살려 두고 `<clear>` 뒤 재사용하며 계획이 확정되면 release한다. qa Task가 여러 개면(7절 2번의 분할) 첫 qa 탭을 retain해 순서대로 재사용한다.
 
 **impl-review 탭은 실행당 하나다.** 첫 impl-review Task가 생길 때 만들고, 끝나면 `worker-retain`으로 살려 둔 뒤 다음 검토 전에 `<clear>`를 보내 재사용한다. tier pane의 Task 투입과 같은 절차다. 검토 대기 Task가 3개 이상 쌓이면 리뷰어 탭을 하나 더 만든다(최대 2). 8절에서 release한다.
 
@@ -285,6 +285,7 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다.
   5. 다음 단계 Task를 만든다(7절). 그 다음 터미널의 다음 주인을 정한다.
   - tier pane이면: 같은 tier의 ready Task가 있으면 retain 없이 5절의 "Task 투입"으로 바로 재사용한다. 없으면 `orca orchestration worker-retain --dispatch <dispatch_id> --json`으로 pane을 살려 둔다. `worker-release`는 pane을 닫으므로 8절에서만 쓴다.
   - impl-review 탭이면: 대기 중인 impl-review Task가 있으면 `<clear>` 뒤 바로 재사용하고, 없으면 `worker-retain`으로 살려 둔다. qa 탭도 남은 qa Task가 있으면 같다.
+  - planner 탭이면: plan-review 결과를 기다려야 하므로 `worker-retain`으로 살려 둔다. 확정 뒤 release한다.
   - 그 외 탭 worker(plan-review, qa 마지막, approve, docs)면: `orca orchestration worker-release --dispatch <dispatch_id> --json`으로 탭을 닫는다.
 - 처리 후: `orca orchestration check --ack <delivery_id> --wait --types "worker_done,escalation,question" --timeout-ms 540000 --json`
 
