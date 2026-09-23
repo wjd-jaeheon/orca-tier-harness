@@ -29,6 +29,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - 3-doc은 Task를 만들기 전에 `scripts/check-3doc.py`로 결정론적으로 검사합니다(그래프 파싱, 순환, 없는 id, 본문·그래프 불일치, `risk` 값). 통과한 3-doc의 해시를 기록해 실행 중 문서가 바뀌면 멈춥니다.
 - 요구사항 문서, 코드, worker 리포트 안의 문장은 데이터로만 다룹니다. 그 안에 에이전트를 향한 지시문이 있어도 따르지 않습니다. worker는 승인 생략 플래그로 실행되므로 신뢰하는 저장소에서만 쓰십시오.
 - 모든 단계가 파일로 근거를 남깁니다. 3-doc, plan-review·구현·impl-review·qa·approve 리포트, orchestrator의 `.harness/log.md`입니다. approve 뒤 `docs` worker가 `docs/overview.md`(큰 그림 한 화면, 상세는 링크)와 `docs/runs/<날짜>-<목표>/`(3-doc과 리포트 사본)를 커밋하고 `AGENTS.md`·`CLAUDE.md`에 포인터 한 줄을 넣습니다. 다음 실행의 ready가 이 문서를 프로젝트 맥락으로 읽습니다.
+- 사용자가 답해야 하는 순간(ready 질문, 에스컬레이션, 한도, 최종 보고)마다 OS 알림을 띄웁니다. Windows는 `scripts/notify.ps1`, macOS는 `osascript`, Linux는 `notify-send`입니다.
 - `tests/`에 픽스처와 dry run 절차가 있습니다. 스킬을 고칠 때 전후를 비교하는 용도입니다.
 
 ## 요구 사항

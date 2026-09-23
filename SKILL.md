@@ -293,6 +293,14 @@ orchestrator의 컨텍스트에는 worker_done body의 첫 줄, outcome, 커밋 
 
 **사용자 개입.** 대기 중 사용자가 보낸 메시지는 `check` 명령이 끝난 뒤 읽힌다. 사용자는 Esc로 대기를 끊고 말할 수 있다. 다음 대기 전에 처리한다. 특정 Task나 worker에 대한 지시면 `orca orchestration send --to dispatch:<id> --body "<지시>" --json`으로 전달하고 state.json에 적는다. 상태 질문이면 state.json과 `task-list`로 답한다. 중단이면 8절이다. 요구사항 변경이면 새 Task를 만들지 않고 진행 중인 dispatch는 끝내게 둔 뒤, 변경 내용을 material로 planner를 다시 띄워 ELICIT부터 3-doc을 갱신하고, 그래프 검사와 매핑을 다시 해 아직 만들지 않은 Task만 새 계획을 따르게 한다. 이미 머지된 Task 중 새 spec과 어긋나는 것은 재작업 Task로 만든다.
 
+**사용자 알림.** 사용자가 답해야 하는 순간마다 OS 알림을 하나 띄운다. 시점은 planner의 question을 사용자에게 묻기 직전, escalation이나 반복 실패로 사용자에게 올릴 때, 한도 메시지로 멈출 때, 8절의 최종 보고 직전이다. 알림에는 한 줄 요약만 넣고 내용은 채팅에 쓴다. 명령이 실패해도 진행에는 영향이 없다. Orca는 작업표시줄 뱃지를 CLI로 제공하지 않으므로 이것으로 대신한다.
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File <이 SKILL.md가 있는 디렉터리>/scripts/notify.ps1 -Title "tier-harness" -Body "<한 줄>"   # Windows
+osascript -e 'display notification "<한 줄>" with title "tier-harness"'                                                  # macOS
+notify-send tier-harness "<한 줄>"                                                                                          # Linux
+```
+
 빈 결과나 timeout은 실패가 아니다. 빈 대기가 3번 연속이면 `orca orchestration worker-list --include-remote --json`으로 각 행의 `projection.nextAction`을 따른다.
 
 ### 7. 단계별 Task 규칙
