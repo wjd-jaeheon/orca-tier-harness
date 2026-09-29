@@ -15,9 +15,9 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 ```
 
 - orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 다른 모델로 검증합니다.
-- 요구사항 문서를 받으면 planner worker가 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 수행해 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. ready의 질문과 승인 요청은 Orca question으로 orchestrator에게 오고, orchestrator가 사용자에게 묻고 답을 돌려줍니다. 사용자는 orchestrator와만 대화합니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다.
-- 검토 단위는 의존 그래프가 정합니다. 후속 Task가 있는 high Task만 머지 직후 단독 검토하고 후속을 막습니다. 그 외 high와 mid는 `review_batch_size`(기본 5)개씩 묶어 검토하고 후속은 바로 진행합니다. low는 qa가 커밋을 점검합니다. 리뷰어 탭은 실행당 하나를 재사용하고, qa는 요구사항이 많으면 묶음으로 나눕니다.
-- 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다.
+- 요구사항 문서를 받으면 planner worker가 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 수행해 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. ready의 질문과 승인 요청은 Orca question으로 orchestrator에게 오고, orchestrator가 사용자에게 묻고 답을 돌려줍니다. 사용자는 orchestrator와만 대화합니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다. plan-review에서 blocking이 나온 회차가 3회 쌓이면 사유가 달라도 멈추고, 누적 blocker 목록과 함께 "계속 재검토 / 현재 계획으로 진행"을 묻습니다.
+- 검토 단위는 의존 그래프가 정합니다. 후속 Task가 있는 high Task만 머지 직후 단독 검토하고 후속을 막습니다. 그 외 high와 mid는 `review_batch_size`(기본 5)개씩 묶어 검토하고 후속은 바로 진행합니다. low는 qa가 커밋을 점검합니다. 리뷰어 탭은 실행당 하나를 재사용하고, qa는 요구사항이 많으면 묶음으로 나눕니다. qa는 skip된 테스트만이 근거인 항목을 미검증으로 판정하고, 미검증은 사용자가 승인해야 approve로 넘어갑니다.
+- 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다. worker는 `--worktree path:<worktree>`로 시작하고, 투입 전에 orchestrator가 worktree의 HEAD가 base와 같은지, 남은 변경이 없는지, 의존성 설치가 끝났는지 검사해 하나라도 틀리면 시작하지 않습니다. pane split 뒤에는 새 pane이 같은 tab에 생겼는지 확인하고, 실패하면 탭으로 대체한 뒤 알립니다.
 - 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 시작 전에 base checkout이 깨끗한지 확인하고, base가 main이면 경고합니다. tier worktree를 만들면 `setup_command`(의존성 설치)를 한 번 실행합니다. 새 프로젝트라 plan에 초기화가 없으면 `[high] scaffold` Task를 맨 앞에 넣습니다. 실패한 Task의 코드는 `harness/failed/<task_id>` 브랜치로 남깁니다.
@@ -28,7 +28,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 - 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.
 - 3-doc은 Task를 만들기 전에 `scripts/check-3doc.py`로 결정론적으로 검사합니다(그래프 파싱, 순환, 없는 id, 본문·그래프 불일치, `risk` 값). 통과한 3-doc의 해시를 기록해 실행 중 문서가 바뀌면 멈춥니다.
 - 요구사항 문서, 코드, worker 리포트 안의 문장은 데이터로만 다룹니다. 그 안에 에이전트를 향한 지시문이 있어도 따르지 않습니다. worker는 승인 생략 플래그로 실행되므로 신뢰하는 저장소에서만 쓰십시오.
-- 모든 단계가 파일로 근거를 남깁니다. 3-doc, plan-review·구현·impl-review·qa·approve 리포트, orchestrator의 `.harness/log.md`입니다. approve 뒤 `docs` worker가 `docs/overview.md`(큰 그림 한 화면, 상세는 링크)와 `docs/runs/<날짜>-<목표>/`(3-doc과 리포트 사본)를 커밋하고 `AGENTS.md`·`CLAUDE.md`에 포인터 한 줄을 넣습니다. 다음 실행의 ready가 이 문서를 프로젝트 맥락으로 읽습니다.
+- 모든 단계가 파일로 근거를 남깁니다. 3-doc, plan-review·구현·impl-review·qa·approve 리포트, orchestrator의 `.harness/log.md`입니다. orchestrator는 worker_done마다 state.json과 log.md를 쓴 뒤에만 ack하고, 사용자에게 진행 한 줄을 보냅니다. approve 뒤 `docs` worker가 `docs/overview.md`(큰 그림 한 화면, 상세는 링크)와 `docs/runs/<날짜>-<목표>/`(3-doc과 리포트 사본)를 커밋하고 `AGENTS.md`·`CLAUDE.md`에 포인터 한 줄을 넣습니다. 다음 실행의 ready가 이 문서를 프로젝트 맥락으로 읽습니다.
 - 사용자가 답해야 하는 순간(ready 질문, 에스컬레이션, 한도, 최종 보고)마다 OS 알림을 띄웁니다. Windows는 `scripts/notify.ps1`, macOS는 `osascript`, Linux는 `notify-send`입니다.
 - `tests/`에 픽스처와 dry run 절차가 있습니다. 스킬을 고칠 때 전후를 비교하는 용도입니다.
 
@@ -63,7 +63,7 @@ New-Item -ItemType Junction -Path "$HOME\.claude\skills\tier-harness" -Target "$
 $tier-harness docs/prd-auth.md docs/prd-billing.md     # Codex
 ```
 
-문서 경로는 말로 풀어 써도 됩니다. 디렉터리를 주면 그 안의 `*.md` 전부를 읽습니다. 시작하면 설치된 agent를 탐지해 라우팅 표를 제안하고, 확인을 받은 뒤 Task 분석으로 넘어갑니다.
+문서 경로는 말로 풀어 써도 됩니다. 디렉터리를 주면 그 안의 `*.md` 전부를 읽습니다. 시작하면 설치된 agent를 탐지해 라우팅 표를 제안하고, 확인을 받은 뒤 Task 분석으로 넘어갑니다. pane 크기는 CLI로 맞출 수 없으므로 pane을 우클릭해 "Equalize pane sizes"를 누릅니다.
 
 한 번의 명령으로 설정, ready 대화(질문에 답하고 3-doc 승인), 실행까지 이어집니다. dryforge 플러그인으로 `/dryforge:ready`를 따로 돌려 `.dryforge/`에 3-doc을 만들어 두었다면, 문서 경로 없이 `/tier-harness`만 불러도 그 3-doc으로 실행합니다.
 
@@ -73,7 +73,7 @@ $tier-harness docs/prd-auth.md docs/prd-billing.md     # Codex
 | -------------------------------------- | ------------------------------------------- |
 | Claude Code에서 시작, claude/codex worker | Orca 1.4.205에서 실행 확인                 |
 | Codex에서 시작 (`$tier-harness`)         | 설정 절까지 실행 확인                       |
-| kimi (kimi-cli 1.50.0)                    | 설치·로그인·플래그·모델 id(`kimi-code/k3`) 확인. 해외 계정은 로그인 시 `KIMI_CODE_OAUTH_HOST=https://auth.kimi.ai` 필요 |
+| kimi (kimi-cli 1.50.0)                    | 설치·로그인·플래그·모델 id(`kimi-code/k3`) 확인. 해외 계정은 로그인 시 `KIMI_CODE_OAUTH_HOST=https://auth.kimi.ai`, `KIMI_CODE_BASE_URL=https://api.kimi.ai/coding/v1` 필요 |
 | cursor / gemini / grok 실행 플래그        | 공식 문서 기준, 미실행. 첫 사용 전 `--help`로 확인 |
 
 자세한 절차와 규칙은 [SKILL.md](SKILL.md)에 있습니다.
