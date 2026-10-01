@@ -16,10 +16,10 @@ description: Use when the user hands over one or more PRDs, requirements documen
 
 입력 모드는 둘 중 하나다. 시작할 때 먼저 판정하고 `.harness/state.json`에 `"mode"`로 적는다.
 
-- **3-doc 모드**: 저장소 루트에 `.dryforge/plan.md`가 있고 그 안에 `tasks`와 `depends`를 가진 ```` ```yaml ```` 블록(Execution Graph)이 있으며 `.dryforge/spec.md`와 `.dryforge/handoff.md`가 함께 있으면 이 모드다. 이 스킬에 동봉된 ready 절차(`ready/READY.md`, dryforge에서 가져옴)나 dryforge 플러그인의 `ready`가 사용자와 대화하며 만든 결과물이다. 요구사항 문서 경로는 받지 않는다. config의 `docs`는 이 세 파일 경로로 채운다. 요구사항 원문은 `spec.md`(동작)와 `handoff.md`(hard gates, 문서 역할)다.
-- **문서 모드**: 3-doc이 없으면 이 모드다. 요구사항 문서 경로 1개 이상이 필수다. 프롬프트에서 경로를 찾는다. 형식은 자유다. 디렉터리를 주면 그 안의 `*.md` 전부다(하위 폴더 제외). 경로가 없거나 어느 파일인지 불명확하면 사용자에게 묻는다.
-- 두 모드 공통: worktree 준비 명령(선택). 새 checkout에서 테스트를 돌리기 전에 한 번 필요한 명령으로, 보통 의존성 설치다. 저장소의 매니페스트에서 찾고(예: package.json이면 `npm ci`), 없으면 비워 둔다. config의 `setup_command`다.
-- 두 모드 공통: 전체 테스트·빌드 명령 (3-doc 모드면 handoff.md의 hard gates에서 먼저 찾는다. 없으면 저장소에서 찾고, 못 찾으면 사용자에게 묻는다. 사용자도 없다고 하면 qa spec에 "테스트 명령 없음, 수동 검증만"이라고 적는다)
+- **3-doc 모드**: 루트 `.dryforge/plan.md`에 `tasks`·`depends`를 가진 YAML Execution Graph가 있고 `spec.md`·`handoff.md`가 함께 있으면 이 모드다. config의 `docs`는 이 세 경로다. 원문은 `spec.md`(동작)와 `handoff.md`(hard gates, 문서 역할)다.
+- **문서 모드**: 3-doc이 없으면 프롬프트의 요구사항 문서 경로를 받는다. 형식은 자유이며 디렉터리는 바로 아래 `*.md`만 포함한다. 경로가 없거나 불명확하면 사용자에게 묻는다.
+- 두 모드 공통: config의 `setup_command`는 새 checkout에서 한 번 실행할 준비 명령이다. 매니페스트에서 찾고(예: `npm ci`), 없으면 비워 둔다.
+- 두 모드 공통: 전체 테스트·빌드 명령은 3-doc의 handoff.md hard gates, 저장소 순서로 찾고 없으면 사용자에게 묻는다. 사용자도 없다고 하면 qa spec에 "테스트 명령 없음, 수동 검증만"이라고 적는다.
 - 두 모드 공통: 테스트 명령이 요구하는 환경 변수나 외부 서비스. 매니페스트, 테스트 설정, handoff.md의 hard gates에서 필수 환경 조건과 시험 ID를 찾는다. 값은 프로젝트의 기존 환경 주입 경로로 전달하고 config·spec·리포트에는 비밀값을 쓰지 않는다. 없으면 환경 이름을 사용자에게 묻고, 제공되지 않은 필수 검증은 미검증으로 남겨 통과를 막는다. 6절의 gate 계약에 필수 시험을 선언해 skip뿐 아니라 미등록도 검출한다. 모든 역할의 시험은 [통합 gate](references/integration-gate.md)의 자원 규칙을 따른다.
 
 3-doc 모드의 각 task는 `goal`, `work targets`(files | state | external), `verification gate`, spec 참조를 가지며 그래프의 `risk`는 `RISKY | MECHANICAL | NONE`이다. 3절에서 원문을 참조하는 실행 인덱스를 만들고, 4절에서 투입할 Task만 구성한다.
@@ -40,11 +40,10 @@ description: Use when the user hands over one or more PRDs, requirements documen
 
 - "검증됨"은 Orca 1.4.205에서 이 스킬로 실제 실행한 행이다. "문서 기준" 행은 첫 사용 전에 `<실행 파일> --help`로 model 플래그와 승인 생략 플래그를 확인하고, 다르면 이 표를 고친다.
 - effort가 `-`인 agent는 effort를 받지 않는다. 설정에서 `"-"`로 둔다.
-- kimi의 K3 모델 id는 `kimi-code/k3`다(256K 창은 `kimi-code/k3-256k`). `kimi-k3`가 아니다. 로그인하면 `~/.kimi/config.toml`이 이 id들을 등록한다.
-- kimi는 `--thinking`으로 사고 모드를 켠다. effort 단계는 실행 플래그가 없고 `~/.kimi/config.toml`의 모델 블록 `default_effort`로 정한다. 최고는 `max`다(웹의 Standard/High/Max와 대응). 하네스가 역할별로 바꿀 수 없으므로 설정 effort는 `-`로 두고, 전역 최고를 원하면 아래를 한 번 넣는다.
-  `[models."kimi-code/k3"]` 블록에 `default_effort = "max"` 추가.
+- kimi K3 모델 id는 `kimi-code/k3` 또는 `kimi-code/k3-256k`다. 로그인하면 `~/.kimi/config.toml`에 등록된다.
+- kimi는 `--thinking`을 쓰고 역할 effort는 `-`로 둔다. 단계는 역할별 플래그 없이 `~/.kimi/config.toml`의 `[models."kimi-code/k3"]`에서 전역 `default_effort`로 정한다. 최고는 `"max"`다.
 - codex의 `ultra`와 `max`는 Codex 0.155 이후의 값이다. 이전 버전은 `xhigh`까지다.
-- 초기화 명령이 없거나 "확인 필요"인 agent는 Task를 바꿀 때 pane을 `orca terminal close`로 닫고 그 pane 하나만 다시 만든다. state.json에 적힌 placement를 따른다. `pane`이면 5절 "pane 만들기"의 split 절차(오른쪽 첫 pane이었으면 `<me>`에서 `--direction vertical`, 그 외에는 오른쪽 첫 pane에서 `--direction horizontal`)와 split 검사를 그대로 하고, `tab`이면 `orca terminal create`로 다시 만든다. 새 handle을 `.harness/state.json`에 적는다. 세로 순서는 바뀔 수 있다.
+- 초기화 명령이 없거나 "확인 필요"이면 Task 교체 시 그 터미널만 닫고 state의 placement에 따라 5절대로 다시 만든다. 원래 오른쪽 첫 pane이면 `<me>`에서 vertical, 나머지는 첫 pane에서 horizontal로 split해 검사한다. 새 handle을 기록하며 세로 순서는 바뀔 수 있다.
 - 모든 agent는 Orca를 실행하는 기기에 설치되고 로그인이 끝나 있어야 한다. 설치 여부는 아래로 확인한다.
 
 ```text
@@ -72,19 +71,19 @@ command -v claude codex agent gemini kimi grok                                  
 | approve      | codex  | gpt-6-astra | max    | 최종 승인             |
 | docs         | codex  | gpt-6-astra | max    | 실행 뒤 문서 정리     |
 
-- 역할마다 선택으로 `fallback`(agent, model, effort)을 둘 수 있다. 기본은 orchestrator에만 `claude opus max`다. 모델별 주간 한도가 따로라서 claude 전체 사용량이 남아도 fable만 먼저 차는 경우를 위한 것이다.
+- 역할마다 선택적 `fallback`(agent, model, effort)을 둔다. 기본은 orchestrator의 `claude opus max`뿐이다.
 
 ## 난이도 기준
 
-tier는 high, mid, low 세 단계다. 3-doc의 `risk`가 곧 tier다. `RISKY`는 high, `MECHANICAL`은 mid, `NONE`은 low다. planner가 아래 기준으로 `risk`를 매기고(planner spec에 이 절 본문을 붙인다), plan-review가 같은 기준으로 검증하고, orchestrator는 기계적으로 옮긴다. dryforge 원래의 risk 휴리스틱(테스트를 얼마나 엄격히 할지 정하는 기준)은 쓰지 않는다. 그건 모델을 고르는 기준이 아니다. `risk`가 빠진 task는 orchestrator가 같은 기준으로 매긴다.
+3-doc `risk`의 `RISKY | MECHANICAL | NONE`을 `high | mid | low`로 옮긴다. planner spec에 아래 기준을 넣고 plan-review가 검증한다. orchestrator는 매핑만 하며 `risk`가 없을 때만 직접 판정한다. dryforge의 원래 risk 휴리스틱 대신 이 기준을 쓴다.
 
-tier는 "누가 판단하는가"가 아니다. 결정할 것은 ready가 spec에 정했고, 그래도 남는 질문은 tier와 무관하게 worker가 question으로 올린다. tier가 정하는 것은 어느 모델에 맡길 만큼 구현이 까다롭거나 실수 비용이 큰가뿐이다. 파일 수는 보지 않는다. 파일이 많아도 기계적이면 low이고, 하나여도 까다로우면 high다. spec은 동작과 인터페이스(WHAT)를 정하고, 내부 구조(HOW)는 어느 tier든 구현자가 정한다.
+파일 수는 tier 기준이 아니다. spec은 동작·인터페이스(WHAT)를 정하고 내부 구조(HOW)는 구현자가 정한다. 미결 질문은 tier와 무관하게 worker가 question으로 올린다.
 
 위에서부터 순서대로 판정한다. 먼저 맞는 조건이 tier다.
 
-1. **high**: 다음 중 하나라도 해당한다. (a) spec은 동작을 정했지만 내부 구조를 새로 짜야 한다. 새 모듈의 분할, 알고리즘·자료구조 선택, 상태 관리, 성능 요구가 있는 처리. (b) 동시성, 인증·권한, 암호화, 결제, 데이터 삭제·이관 경로를 건드린다. 오류가 테스트로 잘 안 잡히고 비용이 크다. 저장된 데이터를 옮겨야 하는 스키마 변경도 여기다. (c) 외부 시스템(결제, 메일, 다른 서비스의 API)과 연동한다. 문서와 실제가 다르고 재시도·오류 처리를 짜야 한다.
-2. **low**: 다음에 모두 해당한다. (a) 명세가 완전해서 구현자가 결정할 것이 없다. (b) 리네임, 문구, 설정값·상수, 단순 함수 하나 추가·수정, 문서 중 하나다. (c) 기존 테스트나 빌드로 정확성이 확인된다.
-3. **mid**: 나머지 전부. 기존 패턴을 따라 엔드포인트, 모듈, 화면, 테스트를 추가하는 일반 작업. spec이 새 형식을 이미 정한 계약 변경(함수 시그니처, API 요청·응답 형식, DB 스키마, 이벤트 형식)과 그에 따른 호출자 수정도 여기다. 형식을 정하는 판단은 ready가 끝냈고 남은 일은 기계적이며, 빠뜨린 호출자는 통합 게이트가 잡는다.
+1. **high**: 새 내부 구조·알고리즘·자료구조·상태 관리·성능 설계가 필요하거나, 동시성·인증·권한·암호화·결제·데이터 삭제·이관(저장 데이터 이동이 필요한 스키마 변경 포함)을 건드리거나, 외부 시스템과 연동한다.
+2. **low**: 명세가 완전하고, 리네임·문구·설정값·상수·단순 함수 하나 추가/수정·문서 작업이며, 기존 테스트나 빌드로 정확성을 확인할 수 있어야 한다.
+3. **mid**: 나머지. 기존 패턴의 엔드포인트·모듈·화면·테스트 추가, spec이 정한 계약(함수·API·DB·이벤트 형식)과 호출자 수정이다.
 
 고정 규칙: 3절의 scaffold Task는 high, wiring Task는 low다. 재작업 Task는 원래 tier보다 한 단계 위로 올린다. high는 high로 유지한다.
 
@@ -104,32 +103,11 @@ tier는 "누가 판단하는가"가 아니다. 결정할 것은 ready가 spec에
 4. 검증한다. 모든 행의 agent가 설치됨. effort가 그 agent의 허용 값. impl-review의 agent+model이 impl-high, impl-mid, impl-low 어느 것과도 다름. plan-review의 agent+model이 planner와 다름. `fallback`이 있는 행은 fallback 값으로도 같은 검증을 한다. 하나라도 틀리면 틀린 값이 들어간 표를 이유와 함께 보여주고 3번으로 돌아간다.
 5. `.harness/config.json`에 저장한다. `custom` agent 행은 `"command"`와 `"clear"`를 함께 적는다. `max_workers_per_tier`는 tier당 동시 worker 상한이며 기본 3이다. 사용자가 말하지 않으면 묻지 않고 기본값을 적는다. `setup_command`는 입력 절에서 찾은 worktree 준비 명령이고 없으면 빈 문자열이다. `review_batch_size`는 묶음 검토 하나에 넣는 Task 수이며 기본 5이다.
 
-```json
-{
-  "docs": ["docs/prd-auth.md", "docs/prd-billing.md"],
-  "test_command": "npm test",
-  "setup_command": "npm ci",
-  "max_workers_per_tier": 3,
-  "review_batch_size": 5,
-  "roles": {
-    "orchestrator": { "agent": "claude", "model": "fable",       "effort": "xhigh",
-                      "fallback": { "agent": "claude", "model": "opus", "effort": "max" } },
-    "planner":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "plan-review":  { "agent": "claude", "model": "opus",        "effort": "max" },
-    "impl-high":    { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "impl-mid":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
-    "impl-low":     { "agent": "kimi",   "model": "kimi-code/k3", "effort": "-" },
-    "impl-review":       { "agent": "claude", "model": "opus",        "effort": "max" },
-    "qa":           { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "approve":      { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" },
-    "docs":         { "agent": "codex",  "model": "gpt-6-astra", "effort": "max" }
-  }
-}
-```
+config의 키는 `docs`, `test_command`, `setup_command`, `max_workers_per_tier`, `review_batch_size`, `roles`다. `roles.<역할>`에 확인된 `{agent, model, effort}`와 선택적 `fallback: {agent, model, effort}`을 적는다. 역할 기본값은 위 라우팅 표를 따른다.
 
 아래에서 `<cmd_high>`, `<cmd_impl_review>` 등은 config의 해당 역할을 agent CLI 표 템플릿에 넣어 만든 실행 명령이다.
 
-6. orchestrator 인계. 현재 세션의 agent는 이 스킬을 실행 중인 CLI(Claude Code면 claude, Codex면 codex)이고, model은 시스템 프롬프트나 `/status`로 확인한다. 현재 세션이 config의 orchestrator 또는 그 fallback과 agent·model이 같으면 인계하지 않는다. 둘 다 다르면 새 탭에 orchestrator를 띄우고 넘긴다. 띄운 탭의 첫 화면에 usage limit, rate limit, quota 같은 한도 메시지가 뜨면 그 탭을 닫고 fallback 명령으로 다시 띄운다. fallback도 안 되면 사용자에게 올린다. effort만 다르면 인계하지 않는다. 현재 세션은 인계 receipt를 사용자에게 보고하고 끝낸다. 같으면 2절로 간다.
+6. orchestrator 인계. 현재 agent는 실행 CLI, model은 시스템 프롬프트나 `/status`로 확인한다. config의 orchestrator 또는 fallback과 agent·model이 같으면 2절로 간다(effort 차이는 무시). 둘 다 다르면 새 탭으로 인계한다. 첫 화면에 usage limit·rate limit·quota가 뜨면 닫고 fallback으로 다시 띄우며, 그것도 실패하면 사용자에게 올린다. 현재 세션은 인계 receipt를 보고하고 끝낸다.
 
 ```text
 orca terminal create --worktree current --title "orchestrator" --command '<cmd_orchestrator>' --json
@@ -137,7 +115,7 @@ orca terminal wait --terminal <handle> --for tui-idle --timeout-ms 120000 --json
 orca terminal send --terminal <handle> --text "<SKILL.md 절대 경로>를 읽고 orchestrator로 실행하라. 설정 확인됨. .harness/config.json의 docs를 요구사항 문서로 쓴다." --enter --json
 ```
 
-SKILL.md 절대 경로는 이 파일이 실제로 있는 곳이다. Claude Code는 스킬 로드 시 표시된 base directory, Codex는 `/skills` 목록의 경로에서 얻는다. 기본 설치 위치는 `~/.agents/skills/tier-harness/SKILL.md`다.
+이 파일의 절대 경로는 Claude Code의 스킬 base directory, Codex의 `/skills`에서 얻는다. 기본은 `~/.agents/skills/tier-harness/SKILL.md`다.
 
 ### 2. 준비
 
@@ -148,13 +126,13 @@ echo $ORCA_TERMINAL_HANDLE      # = <me>. PowerShell은 $env:ORCA_TERMINAL_HANDL
 
 `--terminal`을 생략하면 UI에서 선택된 터미널을 가리키므로, 모든 terminal 명령에 handle을 명시한다.
 
-실행 잠금을 확인한다. `.harness/state.json`이 있고 `status`가 `running`이면 이 checkout에서 이전 실행이 끝나지 않은 것이다. 사용자에게 "이어서 진행 / 새로 시작"을 묻는다. 이어서 진행이면 4절의 복구 절차로 간다. 새로 시작이면 `.dryforge/`의 3-doc을 `.dryforge/aborted-<YYYYMMDDHHMM>/`로 옮기고, 같은 시각 값으로 `.harness/log.md`, `.harness/plan-*.md`, `.harness/reports/`, `.harness/state.json`을 `.harness/aborted-<YYYYMMDDHHMM>/`로 옮긴다. `config.json`과 `worktrees/`는 남기고, 남은 worktree는 5절의 재사용 절차를 따른다. 같은 checkout에서 두 실행을 동시에 돌리지 않는다. 프로젝트나 기능을 병렬로 진행하려면 Orca worktree를 하나씩 따로 만들어 각 worktree에서 이 스킬을 실행한다. checkout마다 `.dryforge/`와 `.harness/`가 따로 생기므로 서로 섞이지 않는다. 시작하면 state.json의 `status`를 `running`으로 적는다. 실행 중인 orchestrator 자신이 한도에 걸리면 스스로 모델을 바꿀 수 없다. 사용자가 fallback 모델로 새 세션이나 Orca 탭을 열어 `/tier-harness`를 부르면 이 잠금이 잡혀 "이어서 진행"으로 복구되고, 그 세션의 모델이 fallback과 같으므로 인계 없이 orchestrator가 된다.
+`.harness/state.json`의 `status`가 `running`이면 "이어서 진행 / 새로 시작"을 묻는다. 이어서는 4절 복구다. 새로 시작은 3-doc을 `.dryforge/aborted-<YYYYMMDDHHMM>/`로, log.md·plan-*.md·reports/·state.json을 같은 시각의 `.harness/aborted-<YYYYMMDDHHMM>/`로 옮긴다. config.json·worktrees/는 남겨 5절대로 재사용한다. checkout당 실행은 하나이며 병렬 프로젝트는 별도 Orca worktree를 쓴다. 시작 시 status를 `running`으로 적는다. orchestrator가 한도에 걸리면 사용자가 fallback 모델의 새 세션/탭에서 `/tier-harness`를 호출해 이어서 복구한다.
 
-base checkout이 깨끗한지 본다. `git status --porcelain`에 untracked `.dryforge/`와 `.harness/` 외의 항목이 있으면 멈추고 보고한다. 다른 작업이 섞여 있으면 통합 게이트 결과를 믿을 수 없다. base가 `main`이나 `master`면 커밋이 그 브랜치에 바로 쌓인다고 한 번 경고하고 계속할지 묻는다.
+`git status --porcelain`에 untracked `.dryforge/`·`.harness/` 외의 항목이 있으면 멈추고 보고한다. base가 `main`·`master`면 직접 커밋이 쌓인다고 경고하고 계속할지 묻는다.
 
-base 브랜치를 정한다. orchestrator checkout의 현재 브랜치(`git branch --show-current`)가 승인 base다. 통합은 별도 고정 후보에서 하고 전체 gate를 통과한 후보만 base에 ff로 올린다(6절). `.harness/state.json`에 `"base"`로 적는다. `.gitignore`에 `.harness/`와 `.dryforge/`가 없으면 추가하고 base에 커밋한다. 5절의 worktree가 이 아래에 생기므로 무시하지 않으면 untracked로 잡힌다.
+현재 브랜치(`git branch --show-current`)를 state의 `base`로 적는다. 별도 고정 후보에서 전체 gate를 통과한 SHA만 ff로 승격한다(6절). `.gitignore`에 `.harness/`·`.dryforge/`가 없으면 추가해 base에 커밋한다.
 
-codex를 쓰는 역할이 하나라도 있으면 trust 대화상자("Do you trust the contents of this directory?")를 미리 없앤다. 신뢰하지 않은 디렉터리에서는 codex pane이 이 대화상자에서 멈추고, Orca는 그 상태의 터미널에 보내는 `terminal send`를 `agent_prompt_blocked`로 거부하므로 사용자가 직접 눌러야만 풀린다. codex는 디렉터리 단위로 trust를 기억하므로 base checkout과 5절에서 만들 tier worktree 경로마다 아래 블록을 codex 설정 파일에 넣는다. 파일은 `$CODEX_HOME/config.toml`, `CODEX_HOME`이 없으면 `~/.codex/config.toml`이다. 같은 경로 항목이 이미 있으면 건너뛴다.
+codex 역할이 있으면 base와 tier worktree 경로에 아래 trust 블록을 미리 넣는다. 설정은 `$CODEX_HOME/config.toml` 또는 `~/.codex/config.toml`이며 기존 경로 항목은 건너뛴다. 미신뢰 디렉터리의 확인 화면은 `agent_prompt_blocked`로 입력이 차단돼 사용자가 직접 해제해야 한다.
 
 ```text
 [projects.'c:\users\me\repo\.harness\worktrees\high']   # Windows: 소문자, 백슬래시, 작은따옴표
@@ -166,11 +144,11 @@ trust_level = "trusted"
 
 ### 3. 분석 (planner + plan-review)
 
-orchestrator는 Task 목록을 직접 만들지 않는다. 계획은 planner가 ready 절차로 만들고 plan-review가 검증한다. orchestrator는 dispatch, 질문 중계, 판정만 한다. 3-doc 모드로 시작했으면 계획은 이미 있으므로 "계획(3-doc 모드)"부터다.
+계획은 planner가 ready로 만들고 plan-review가 검증한다. orchestrator는 직접 작성하지 않고 dispatch·질문 중계·판정을 한다. 3-doc 모드면 해당 계획 검사부터 시작한다.
 
-**빠른 판정.** 먼저 orchestrator가 요구사항 원문을 훑어 대략의 Task 수를 본다. Task가 2개 이하이고 전부 low로 보이면 하네스의 고정 비용(계획, pane, impl-review, qa, approve)이 작업보다 크다. "하네스 없이 이 세션에서 직접 진행할까요?"를 묻는다. 직접 진행을 고르면 orchestrator가 그 자리에서 구현하고 Acceptance를 실행하고 커밋한 뒤 끝낸다. 그 외에는 아래로 간다.
+**빠른 판정.** 원문을 훑어 Task가 2개 이하이며 전부 low로 보이면 "하네스 없이 이 세션에서 직접 진행할까요?"를 묻는다. 선택하면 구현·Acceptance 실행·커밋 후 끝내고, 아니면 계속한다.
 
-**계획(문서 모드).** planner를 새 탭에 띄운다(5절 탭 절차, `--worktree current`). spec은 7절의 planner 템플릿이다. planner가 이 스킬에 동봉된 ready 절차(`<이 SKILL.md가 있는 디렉터리>/ready/READY.md`)를 수행해 사용자와 대화하며 `.dryforge/`에 3-doc을 만든다. 대화는 전부 Orca의 question으로 온다. orchestrator는 6절 대기 루프에서 그 question을 사용자에게 그대로 묻고 답을 reply한다. planner의 마지막 question은 3-doc 승인 요청이다. 사용자가 승인하면 planner가 `succeeded`로 끝나고, orchestrator는 mode를 3-doc으로 바꿔 state.json에 적고 config의 docs를 3-doc 경로 세 개로 바꾼 뒤 "계획(3-doc 모드)"로 간다. 사용자가 수정을 요구하면 그 내용을 reply로 넘기고 planner가 이어서 고친다.
+**계획(문서 모드).** planner를 새 탭(`--worktree current`, 5절)에 띄우고 7절 템플릿으로 `ready/READY.md`를 수행하게 한다. 6절에서 질문과 마지막 3-doc 승인 요청을 사용자에게 중계하고 답·수정 요청을 reply한다. 승인 후 planner가 `succeeded`면 state의 mode와 config의 docs를 3-doc으로 바꾸고 아래 검사로 간다.
 
 **계획(3-doc 모드).** `python <이 SKILL.md가 있는 디렉터리>/scripts/check-3doc.py <저장소 루트>`의 exit 0을 확인한다. python이 없으면 YAML 파싱, 의존 순환·없는 ID, regen 참조, risk enum, 본문·그래프 ID 일치를 직접 검사한다. 실패 시 이 세션의 planner에게 PLAN만 수정하도록 돌려보내며 spec.md는 유지한다. 외부에서 받은 3-doc이면 검사 결과를 사용자에게 보고한다. 통과하면 `check-3doc.py --hash <저장소 루트>`를 state의 `doc_hash`로 고정한다.
 
@@ -227,7 +205,7 @@ status(`running`, `done`, `aborted`), phase(마지막으로 dispatch한 Task의 
 
 이 빌드의 `terminal split --direction`은 `vertical`이 좌우 분할, `horizontal`이 상하 분할이다. 도움말 문구와 반대이므로 아래 순서를 그대로 쓴다. `--command`에는 바로 종료되는 명령을 넣으면 "Timed out waiting for split pane handle"로 실패한다.
 
-**tier worktree.** tier pane마다 git worktree를 하나 둔다. 같은 checkout에서 여러 worker가 동시에 일하면 한쪽이 반쯤 고친 파일 때문에 다른 쪽의 Acceptance가 엉뚱하게 실패하므로 분리한다. 경로는 `.harness/worktrees/<tier>`, 브랜치는 `harness/<tier>`다. pane을 만들기 직전에 base에서 만들고, pane 명령 앞에 `cd`를 붙여 agent를 그 안에서 띄운다. codex pane이면 2절의 trust 블록을 그 worktree 경로로 먼저 넣는다. `<worktree>`는 절대 경로다.
+**tier worktree.** pane마다 `.harness/worktrees/<tier>`, 브랜치 `harness/<tier>`를 base에서 만든다. pane 명령은 `cd <worktree>` 뒤 agent를 실행한다. `<worktree>`는 절대 경로이며 codex면 2절의 trust를 먼저 설정한다.
 
 ```text
 git worktree add -B harness/<tier> .harness/worktrees/<tier> <base>
@@ -235,7 +213,7 @@ git worktree add -B harness/<tier> .harness/worktrees/<tier> <base>
 
 경로가 이미 있으면(이전 실행이 남긴 worktree) `worktree add`를 하지 않는다. `git rev-list <base>..harness/<tier>`가 비어 있지 않으면 `git branch harness/failed/<YYYYMMDDHHMM>-<tier> harness/<tier>`로 보존한 뒤 `git -C <worktree> reset --hard <base>`와 `git -C <worktree> clean -fd`를 하고 재사용한다.
 
-config에 `setup_command`가 있으면 worktree 안에서 한 번 실행하고 결과를 state.json의 `panes.<tier>.setup`에 `ok` 또는 `failed`로 적는다. 비어 있으면 `none`으로 적는다. 새 checkout에는 의존성이 없어서 이것 없이는 worker의 첫 Acceptance가 깨진다. `failed`면 pane을 만들지 않고 출력 마지막 10줄과 함께 사용자에게 보고한다.
+worktree에서 `setup_command`를 한 번 실행해 state의 `panes.<tier>.setup`에 `ok | failed`를 적고, 명령이 없으면 `none`으로 적는다. 실패하면 pane을 만들지 않고 마지막 출력 10줄을 사용자에게 보고한다.
 
 **pane 만들기.** 오른쪽 첫 pane은 `<me>`에서 vertical로, 그다음 pane은 오른쪽 첫 pane에서 horizontal로 나눈다. 오른쪽 첫 pane은 orchestrator tab 안에 남아 있는 첫 tier pane을 뜻한다. 그것이 없으면(첫 tier가 탭이 됐으면) 다음 tier의 첫 pane을 `<me>`에서 다시 vertical로 만들고 그것이 오른쪽 첫 pane이 된다. 세로 순서는 만든 순서를 따른다. tier마다 한 번만 만들고 handle, tabId, placement, worktree 경로를 `.harness/state.json`에 적는다.
 
@@ -247,7 +225,7 @@ orca terminal wait --terminal <새 handle> --for tui-idle --timeout-ms 120000 --
 
 **split 검사.** split 뒤 `orca terminal list --include-visual-layouts --json`으로 새 handle이 split 원본 터미널과 같은 tab에 있는지 확인한다. 같으면 `placement: pane`이다. 다른 tab이면 `placement: tab`으로 적는다. split이 "Timed out waiting for split pane handle"로 끝나면 같은 명령으로 원본 터미널의 tab 안에서 dispatch가 없는 새 pane을 찾아 그 handle을 회수한다. 없으면 `orca terminal create --worktree current --title "<tier>" --command 'cd <worktree>; <cmd_tier>'`로 탭을 만들고 `placement: tab`으로 적는다. `placement: tab`이 되면 사용자에게 "<tier> worker를 pane 대신 탭으로 띄웠다"고 한 줄 알리고 실행은 계속한다. 그 탭이 실행이 끝날 때까지 그 tier의 pane 역할을 한다. dispatch 없이 남은 pane은 `orca terminal close`로 닫고 log.md에 적는다.
 
-**Task 투입.** ready Task의 tier에 맞는 pane에 진행 중인 Dispatch가 없을 때만 넣는다. pane 하나에 Task 하나씩이다. `<clear>`는 그 pane agent의 초기화 명령이다. worker-start 전에 그 tier worktree를 base 최신으로 맞추고 검사한다. 앞서 머지된 다른 tier의 커밋이 이 worktree에 들어오게 하고, 오래된 커밋이나 남은 변경에서 worker가 시작하는 것을 막기 위해서다. spec의 구현 템플릿에는 이 worktree 절대 경로를 채운다. 순서는 아래와 같다. 첫 `status --porcelain`이 비어 있지 않으면 그 파일 목록을 log.md에 적는다(6절의 failed 증거 보존은 이보다 앞선다).
+**Task 투입.** ready Task를 해당 tier의 진행 중 Dispatch가 없는 pane에 하나씩 넣는다. `<clear>`는 agent 초기화 명령이다. spec에는 worktree 절대 경로를 넣고 아래 순서로 base 동기화·검사한다. 첫 dirty 목록은 log.md에 적으며 실패 증거 보존(6절)은 reset보다 먼저 한다.
 
 ```text
 git -C <worktree> status --porcelain      # 비어 있지 않으면 목록을 log.md에 적는다
@@ -265,7 +243,7 @@ orca orchestration worker-start --task <task_id> --worktree path:<worktree> --te
 - 검사는 셋이다. (1) worktree의 HEAD가 `git rev-parse <base>`와 같다. (2) `status --porcelain`이 비어 있다. (3) state.json의 `panes.<tier>.setup`이 `ok`나 `none`이다. 값이 없거나 `failed`면 그 자리에서 `setup_command`를 실행해 exit 0이면 `ok`로 적는다. 하나라도 틀리면 `worker-start`를 부르지 않고 기대 sha, 실제 sha, 변경 파일 목록, setup 출력 마지막 10줄을 사용자에게 보고한 뒤 그 pane을 retain한다. 사용자가 해결하면 검사부터 다시 한다.
 - `--worktree`는 `path:<tier worktree 절대 경로>`다. `current`는 orchestrator checkout을 뜻하므로 tier pane에 넘기면 `terminal_worktree_mismatch`로 거부된다. 첫 dispatch의 receipt에서 worktree 경로가 tier worktree와 같은지 확인하고, 다르거나 거부되면 `new-top-level`이나 다른 worktree로 우회하지 않고 receipt와 함께 사용자에게 보고한다. path 선택자의 정확한 표기(구분자, 대소문자)는 이 receipt로 확인해 state.json의 worktree 값과 맞춘다.
 - `wait` 결과의 `satisfied`가 `true`이고 `orca terminal read --terminal <pane> --json`의 마지막 화면이 agent 입력 프롬프트일 때만 `worker-start`를 호출한다. `blockedReason`이 `agent-interactive-prompt`이거나 화면에 확인 대화상자·로그인 화면이 떠 있으면 사용자에게 보고하고 사용자가 넘길 때까지 기다린다. 그 터미널에 `terminal send`를 보내도 `agent_prompt_blocked`로 거부된다. `satisfied`가 `false`면 timeout을 두 배로 한 번 더 기다리고, 그래도 안 되면 사용자에게 보고한다. 화면이나 worker의 첫 turn에 usage limit, rate limit, quota 같은 한도 메시지가 뜨면 그 역할에 `fallback`이 있을 때 그 pane이나 탭을 닫고 fallback 명령으로 다시 띄운다. config는 바꾸지 않고 state.json의 `effective_roles`에 적으며, 그 역할은 실행이 끝날 때까지 fallback을 쓴다. fallback이 없으면 사용자에게 올린다.
-- 동시 실행은 tier당 worker 1개로 시작한다. 같은 tier의 ready Task 수가 그 tier의 현재 worker 수의 2배 이상이고 worker 수가 config의 `max_workers_per_tier`(기본 3) 미만이면 worktree를 하나 더 만들고(`.harness/worktrees/<tier>-<n>`, 브랜치 `harness/<tier>-<n>`, n은 2부터) 그 tier의 pane을 `--direction vertical`로 한 번 더 나눠 worker를 하나 더 둔다. 상한에 닿았거나 ready가 적으면 나누지 않는다. Ownership이 겹치는 Task는 Deps 때문에 동시에 ready가 되지 않으므로 worker를 늘려도 같은 파일을 동시에 건드리지 않는다. 늘어나는 것은 pane 수와 agent CLI의 요율 제한 부담이다. 화면이 좁거나 요율 제한에 걸리면 config에서 상한을 1이나 2로 낮춘다. 새 worktree도 위 "tier worktree"의 재사용·setup 규칙을 따르고, split은 그 tier의 pane이나 탭에서 나누며 split 검사는 원본 handle의 tabId와 비교한다. 투입 시 `--worktree`는 그 worktree의 `path:`다.
+- tier당 worker 1개로 시작한다. 같은 tier의 ready Task가 현재 worker 수의 2배 이상이고 worker 수가 `max_workers_per_tier`(기본 3) 미만이면 `.harness/worktrees/<tier>-<n>`, `harness/<tier>-<n>`(n≥2)을 만들어 tier pane/tab에서 vertical split한다. 5절의 재사용·setup과 원본 tabId 기준 split 검사를 그대로 적용하고 해당 `path:`로 투입한다. Ownership 충돌은 Deps로 직렬화한다. 화면·요율 제한에 걸리면 상한을 1이나 2로 낮춘다.
 
 **planner, plan-review, qa, approve, docs는 새 탭이다.** Task마다 만들고 끝나면 닫는다. planner·plan-review·docs는 `current`, qa·approve는 검증할 최종 SHA로 고정한 별도 worktree의 `path:`를 쓴다. 예외가 둘이다. planner 탭은 실행당 하나로, plan 재작업 회차 사이에는 `worker-retain`으로 살려 두고 `<clear>` 뒤 재사용하며 계획이 확정되면 release한다. qa Task가 여러 개면(7절 2번의 분할) 같은 고정 후보에서 첫 qa 탭을 retain해 순서대로 재사용한다.
 
@@ -309,9 +287,11 @@ Delivery 안의 모든 메시지를 처리한 뒤에만 ack한다. 처리에는 
 
 orchestrator의 컨텍스트에는 worker_done body의 첫 줄, outcome, 커밋 SHA, 리포트 경로와 gate 검증기의 판정을 넣고 state.json에 적는다. 리포트 전문과 diff의 판단은 impl-review나 qa worker에게 시킨다. 통합 gate 원본 로그는 보존하고 평소에는 검증기 요약과 실패 단계의 마지막 10줄만 본다. 마지막 10줄만으로 통과를 추정하지 않는다.
 
-**사용자 개입.** 대기 중 사용자가 보낸 메시지는 `check` 명령이 끝난 뒤 읽힌다. 사용자는 Esc로 대기를 끊고 말할 수 있다. 다음 대기 전에 처리한다. 특정 Task나 worker에 대한 지시면 `orca orchestration send --to dispatch:<id> --body "<지시>" --json`으로 전달하고 state.json에 적는다. 상태 질문이면 state.json과 `task-list`로 답한다. 중단이면 8절이다. 요구사항 변경이면 새 Task를 만들지 않고 진행 중인 dispatch는 끝내게 둔 뒤, 변경 내용을 material로 planner를 다시 띄워 ELICIT부터 3-doc을 갱신하고, 그래프 검사와 매핑, 3절의 계획 검증과 확정을 새 계획 회차로 거친 뒤 아직 만들지 않은 Task만 새 계획을 따르게 한다. 이미 머지된 Task 중 새 spec과 어긋나는 것은 재작업 Task로 만든다. 사용자가 하네스 밖에서 브랜치를 통합했거나 PR을 병합했다고 알리면 중단 요청으로 처리한다(8절). 역할의 모델 변경 지시면 config.json의 그 역할을 고치고 1절 4번 검증을 다시 한다. 검증에 걸리면 이유를 보여주고 바꾸지 않는다. 통과하면 log.md에 적고 그 역할의 `effective_roles` 항목이 있으면 지운다. 진행 중인 dispatch는 끝내게 둔다. 그 역할의 tier pane과 retain된 탭(planner, impl-review, qa)은 다음 투입이나 재사용 때 실행 명령이 config와 다르면 닫고 5절 절차로 다시 만든다. orchestrator 역할의 변경이면 config만 고치고 state.json을 저장한 뒤, 그 모델로 새 세션을 열어 `/tier-harness`를 부르면 2절의 잠금으로 이어진다고 보고하고 현재 세션을 끝낸다. 진행 중인 dispatch의 worker_done은 새 세션이 복구 절차로 받는다. `effective_roles`는 한도 fallback 전용이다.
+**사용자 개입.** `check` 종료 후, 다음 대기 전에 입력을 처리한다(Esc로 대기 중단 가능). Task 지시는 `orca orchestration send --to dispatch:<id> --body "<지시>" --json`으로 전달해 state에 적고, 상태 질문은 state·task-list로 답한다. 중단 또는 외부 브랜치 통합·PR 병합 통보는 8절로 간다. 요구사항 변경은 새 Task 생성을 멈추고 진행 dispatch를 마친 뒤 planner의 ELICIT부터 3-doc을 갱신한다. 그래프 검사·매핑·3절 검토와 확정을 새 회차로 거쳐 미생성 Task에 적용하고, 이미 머지된 작업과 새 spec의 불일치는 재작업으로 만든다.
 
-**사용자 알림.** 사용자가 답해야 하는 순간마다 OS 알림을 하나 띄운다. 시점은 planner의 question을 사용자에게 묻기 직전, 3절에서 blocking 누적 3회로 사용자에게 올릴 때, escalation이나 반복 실패로 사용자에게 올릴 때, 한도 메시지로 멈출 때, 8절의 최종 보고 직전이다. 알림에는 한 줄 요약만 넣고 내용은 채팅에 쓴다. 명령이 실패해도 진행에는 영향이 없다. Orca는 작업표시줄 뱃지를 CLI로 제공하지 않으므로 이것으로 대신한다.
+역할 변경은 1절 4번으로 먼저 검증한다. 실패하면 이유를 보고하고 config를 유지한다. 통과하면 config·log를 갱신하고 해당 `effective_roles`를 지운다. 진행 dispatch는 마치고, tier pane·retain 탭(planner, impl-review, qa)의 실행 명령이 config와 다르면 다음 투입 때 5절대로 재생성한다. orchestrator 변경이면 config·state를 저장하고 새 모델 세션에서 `/tier-harness`로 이어서 복구하도록 보고한 뒤 현재 세션을 끝낸다. worker_done은 새 세션이 복구한다. `effective_roles`는 한도 fallback 전용이다.
+
+**사용자 알림.** planner 질문, 계획 blocking 누적 3회, escalation·반복 실패로 사용자에게 답을 구할 때와 한도 중단·최종 보고 직전에 OS 알림을 띄운다. 한 줄만 알리고 본문은 채팅에 쓴다. 알림 실패는 실행을 막지 않는다.
 
 ```text
 powershell -NoProfile -ExecutionPolicy Bypass -File <이 SKILL.md가 있는 디렉터리>/scripts/notify.ps1 -Title "tier-harness" -Body "<한 줄>"   # Windows

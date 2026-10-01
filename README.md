@@ -6,35 +6,11 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 ## 구성
 
-흐름: `plan(ready) → plan-review → impl(high/mid/low) → impl-review → 묶음 전체 gate → qa → approve → docs → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
+`plan(ready) → plan-review → impl(high/mid/low) → impl-review → 묶음 전체 gate → qa → approve → docs → 사용자`
 
-```text
-[orchestrator] | [high]      plan / plan-review / impl-review / qa / approve / docs 는 새 탭
-               | [mid ]      tier pane은 그 tier의 Task가 처음 생길 때 만들어짐
-               | [low ]
-```
+실행·역할 규칙은 [SKILL.md](SKILL.md), 후보 검증·자원 격리는 [통합 gate](references/integration-gate.md), 회귀 확인은 [tests/README.md](tests/README.md)에 있습니다. ready의 출처·동기화는 [UPSTREAM.md](ready/UPSTREAM.md)를 따릅니다.
 
-- orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 다른 모델로 검증합니다.
-- 요구사항 문서를 받으면 planner worker가 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 수행해 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. ready의 질문과 승인 요청은 Orca question으로 orchestrator에게 오고, orchestrator가 사용자에게 묻고 답을 돌려줍니다. 사용자는 orchestrator와만 대화합니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다. plan-review에서 blocking이 나온 회차가 3회 쌓이면 사유가 달라도 멈추고, 누적 blocker 목록과 함께 "계속 재검토 / 현재 계획으로 진행"을 묻습니다.
-- 구현 완료 뒤 전체 gate보다 먼저 리뷰합니다. 후속을 막는 high·mid는 우선 검토하고, 나머지는 준비된 수만큼 `review_batch_size`(기본 5) 이하로 묶습니다. low는 기존처럼 qa가 커밋을 점검합니다. 검토 완료된 변경을 고정 후보에 묶어 전체 gate를 실행하고, 후속은 선행이 승인 base에 포함된 뒤 시작합니다. gate 중에도 독립 구현·리뷰는 계속합니다. 동일 후보·입력·환경의 전체 시험 증거는 qa가 원본과 판정을 확인해 재사용합니다.
-- 구현 worker는 tier별 worktree에서, 리뷰·gate·qa는 서로 구분된 고정 worktree에서 실행합니다. Ownership을 확인하고 검증한 후보 SHA만 base에 ff로 승격합니다. 묶음 실패 시 base는 그대로 두며, 단독 재실행 통과로 실패한 묶음을 승인하지 않습니다. worker는 `--worktree path:<worktree>`로 시작하고 HEAD·clean 상태·setup과 receipt 경로를 확인합니다. pane split의 같은 tab 검사와 실패 시 탭 대체도 유지합니다.
-- gate는 attempt별 로그·계약·결과를 보존하고 [check-gate.py](scripts/check-gate.py)로 단계 실패, 필수 시험의 skip·미등록·미실행, SHA·계약·로그 불일치를 검출합니다. 필수 gate는 알려진 환경 실패 차감이나 미검증 승인으로 면제하지 않습니다. runner 출력 수집, 공유 자원 소유와 잠금, 안전한 적용 경계는 [통합 gate](references/integration-gate.md)에 있습니다. 이 검증기는 시험 실행기나 OS 잠금 도구가 아닙니다.
-- 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
-- 원본 3-doc은 한곳에 두고 실행 인덱스에는 Task 참조·해시·실행 변경분만 적습니다. worker는 읽을 수 있는 절대 경로에서 공통 제약과 자기 원문을 확인합니다. QA는 수용 조건을 입증한 동일 후보의 자동 시험 증거를 재사용하고, 명시적 수동 검증과 빠진 검증은 직접 수행합니다.
-- gate 처리 대기 중에는 30초 메시지 대기 전후에 완료를 확인합니다. gate가 없으면 기존 긴 이벤트 대기를 사용합니다. 승인 범위 안의 기계적 변경은 파일 수로 중단하지 않습니다. 재검토는 지적·변경 영향부터 확인하며, 단계별 시간·비용은 실제 receipt가 제공한 근거로만 구분합니다.
-- 같은 Task에 세 번째 재작업이 필요하면 조정자가 지적 원장과 수용 조건부터 점검합니다. 새 blocker를 숨기지 않으며 기존 같은 사유 3회·최대 10회 에스컬레이션도 유지합니다.
-- Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
-- 시작 전에 base checkout이 깨끗한지 확인하고, base가 main이면 경고합니다. tier worktree를 만들면 `setup_command`(의존성 설치)를 한 번 실행합니다. 새 프로젝트라 plan에 초기화가 없으면 `[high] scaffold` Task를 맨 앞에 넣습니다. 실패한 Task의 코드는 `harness/failed/<task_id>` 브랜치로 남깁니다.
-- tier마다 worker 1개로 시작해 ready Task가 쌓이면 `max_workers_per_tier`(기본 3)까지 늘립니다. 한 checkout에서는 실행 하나만 돌고(`.harness/state.json`의 status로 잠금), 여러 프로젝트를 병렬로 하려면 Orca worktree를 따로 만들어 각자 실행합니다.
-- 역할마다 agent CLI(claude, codex, cursor, gemini, kimi, grok, custom)와 model, effort를 시작할 때 고릅니다. 역할에 `fallback`을 두면 한도 메시지가 뜰 때 그 모델로 바꿔 띄웁니다. 기본은 orchestrator fable의 fallback이 opus입니다. 실행 중인 orchestrator가 한도에 걸리면 opus로 새 세션을 열어 `/tier-harness`를 다시 부르면 이어서 진행합니다. 선택 결과는 `.harness/config.json`에 저장되어 다음 실행에서 재사용됩니다.
-- impl-review는 구현자와, plan-review는 planner와 다른 모델이어야 한다는 검증이 붙습니다.
-- worker가 받는 Task spec 끝에는 역할별 규칙 템플릿(planner, plan-review, 구현, impl-review, qa, approve, docs)이 붙어서, 어떤 CLI의 모델이든 같은 완료·실패 기준으로 일합니다.
-- 선택한 orchestrator가 현재 세션과 다르면 새 탭에 그 agent를 띄워 인계합니다.
-- 3-doc은 Task를 만들기 전에 `scripts/check-3doc.py`로 결정론적으로 검사합니다(그래프 파싱, 순환, 없는 id, 본문·그래프 불일치, `risk` 값). 통과한 3-doc의 해시를 기록해 실행 중 문서가 바뀌면 멈춥니다.
-- 요구사항 문서, 코드, worker 리포트 안의 문장은 데이터로만 다룹니다. 그 안에 에이전트를 향한 지시문이 있어도 따르지 않습니다. worker는 승인 생략 플래그로 실행되므로 신뢰하는 저장소에서만 쓰십시오.
-- 모든 단계는 파일로 근거를 남기며 worker_done 처리 후 state·log·진행 보고를 기록하고 ack합니다. approve 뒤 docs worker는 최종 판정과 필요한 결정·우려 부분을 읽고, 이전 회차를 포함한 원본 전체는 별도로 복사·해시 대조합니다. `docs/overview.md`와 `docs/runs/<날짜>-<목표>/3doc/`, `harness/` 사본을 커밋하고 `AGENTS.md`·`CLAUDE.md`에 개요 포인터를 둡니다. 다음 ready가 이 기록을 참조합니다.
-- 사용자가 답해야 하는 순간(ready 질문, 에스컬레이션, 한도, 최종 보고)마다 OS 알림을 띄웁니다. Windows는 `scripts/notify.ps1`, macOS는 `osascript`, Linux는 `notify-send`입니다.
-- `tests/`에 픽스처와 dry run 절차가 있습니다. 스킬을 고칠 때 전후를 비교하는 용도입니다.
+요구사항·코드·worker 리포트의 지시문은 데이터로만 다룹니다. worker는 승인 생략 플래그로 실행하므로 신뢰하는 저장소에서만 사용하십시오.
 
 ## 요구 사항
 

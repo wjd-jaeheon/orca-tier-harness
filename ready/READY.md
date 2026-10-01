@@ -128,7 +128,7 @@ ELICIT           elicitation.md · gap-analysis.md · intent-review.md · ground
                  first-cycle-review.md · foundation-format.md
 intent-completeness  intent-completeness.md  ← independent guess-hunt → loop to user (subagent)
 SPEC + REVIEW(A) output-format.md · review-fidelity.md            [first]+ foundation-format.md
-PLAN             output-format.md · dependency-calc.md · example-3doc.md
+PLAN             output-format.md · dependency-calc.md
 HANDOFF          output-format.md                                   [first]+ foundation-format.md
 3-doc-gate       3-doc-gate.md                                    [first]+ first-cycle-review.md
                  ← independent dispatch (the final backstop)
@@ -284,7 +284,7 @@ Force-load `references/output-format.md` and `references/review-fidelity.md` (+ 
 
 ## PLAN — decomposition for parallel execution — `references/dependency-calc.md`
 
-Force-load `references/output-format.md`, `references/dependency-calc.md`, `references/example-3doc.md`.
+Force-load `references/output-format.md` and `references/dependency-calc.md`.
 Write `.dryforge/plan.md` from the frozen spec. Per task: a **behavioral contract** (goal, work
 targets [files | state | external], verification gate), thinking-base where not code-derivable,
 shared-write guidance (prose). Compute the **Execution Graph** last — a **fenced `yaml` block** with

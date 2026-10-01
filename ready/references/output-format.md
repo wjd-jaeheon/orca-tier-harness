@@ -150,9 +150,4 @@ chosen quality attribute: security posture, consistency level, perf budget) / re
 option the designer considered and discarded — record it, and why, so a downstream agent doesn't
 "improve" the design back into the rejected choice).
 
-## A complete worked example
-
-See `references/example-3doc.md` for one full `handoff` + `spec` + `plan` (an idempotent-submission
-feature) — read it once to anchor the shape and altitude. It is **illustrative, not a template**:
-its role names are deliberately generic because a real 3-doc is stack-agnostic and written against
-the project discovered at runtime. Copy the structure, not the words.
+Optional delta example: [checked 3-doc fixture](../../tests/fixtures/3doc-todo/.dryforge/plan.md). First-cycle Foundation requirements above still apply.
