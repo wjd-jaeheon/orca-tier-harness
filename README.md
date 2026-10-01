@@ -6,7 +6,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 ## 구성
 
-흐름: `plan(ready) → plan-review → impl(high/mid/low) → impl-review → qa → approve → docs → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
+흐름: `plan(ready) → plan-review → impl(high/mid/low) → impl-review → 묶음 전체 gate → qa → approve → docs → 사용자`. 각 화살표가 검증 단계이고, 사람이 approve의 최종 검토자입니다.
 
 ```text
 [orchestrator] | [high]      plan / plan-review / impl-review / qa / approve / docs 는 새 탭
@@ -16,9 +16,11 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 - orchestrator는 코드를 직접 수정하지 않고 대화, 분배, 대기, 보고만 합니다. Task 분해는 planner가 하고 plan-review가 다른 모델로 검증합니다.
 - 요구사항 문서를 받으면 planner worker가 [dryforge](https://github.com/prekuter/dryforge)의 `ready` 절차(이 저장소의 `ready/`에 동봉, MIT)를 수행해 3-doc(`.dryforge/handoff.md`, `spec.md`, `plan.md`)을 만듭니다. ready의 질문과 승인 요청은 Orca question으로 orchestrator에게 오고, orchestrator가 사용자에게 묻고 답을 돌려줍니다. 사용자는 orchestrator와만 대화합니다. `risk`(RISKY / MECHANICAL / NONE)가 tier(high / mid / low)로, `depends`가 Task 의존으로 옮겨집니다. dryforge의 `go`는 쓰지 않고 이 스킬이 Orca에서 실행합니다. 동봉본의 출처와 재동기화 방법은 [ready/UPSTREAM.md](ready/UPSTREAM.md)에 있습니다. plan-review에서 blocking이 나온 회차가 3회 쌓이면 사유가 달라도 멈추고, 누적 blocker 목록과 함께 "계속 재검토 / 현재 계획으로 진행"을 묻습니다.
-- 검토 단위는 의존 그래프가 정합니다. 후속 Task가 있는 high Task만 머지 직후 단독 검토하고 후속을 막습니다. 그 외 high와 mid는 `review_batch_size`(기본 5)개씩 묶어 검토하고 후속은 바로 진행합니다. low는 qa가 커밋을 점검합니다. 리뷰어 탭은 실행당 하나를 재사용하고, qa는 요구사항이 많으면 묶음으로 나눕니다. qa는 skip된 테스트만이 근거인 항목을 미검증으로 판정하고, 미검증은 사용자가 승인해야 approve로 넘어갑니다.
-- 구현 worker는 tier마다 하나씩 둔 git worktree(`.harness/worktrees/<tier>`)에서 일합니다. 완료된 Task는 머지 게이트(Ownership 밖 파일 없음)와 통합 게이트(전체 테스트 통과)를 지나야 base에 올라가고, 그 다음에 review가 붙습니다. worker는 `--worktree path:<worktree>`로 시작하고, 투입 전에 orchestrator가 worktree의 HEAD가 base와 같은지, 남은 변경이 없는지, 의존성 설치가 끝났는지 검사해 하나라도 틀리면 시작하지 않습니다. pane split 뒤에는 새 pane이 같은 tab에 생겼는지 확인하고, 실패하면 탭으로 대체한 뒤 알립니다.
+- 구현 완료 뒤 전체 gate보다 먼저 리뷰합니다. 후속을 막는 high·mid는 우선 검토하고, 나머지는 준비된 수만큼 `review_batch_size`(기본 5) 이하로 묶습니다. low는 기존처럼 qa가 커밋을 점검합니다. 검토 완료된 변경을 고정 후보에 묶어 전체 gate를 실행하고, 후속은 선행이 승인 base에 포함된 뒤 시작합니다. gate 중에도 독립 구현·리뷰는 계속합니다. 동일 후보·입력·환경의 전체 시험 증거는 qa가 원본과 판정을 확인해 재사용합니다.
+- 구현 worker는 tier별 worktree에서, 리뷰·gate·qa는 서로 구분된 고정 worktree에서 실행합니다. Ownership을 확인하고 검증한 후보 SHA만 base에 ff로 승격합니다. 묶음 실패 시 base는 그대로 두며, 단독 재실행 통과로 실패한 묶음을 승인하지 않습니다. worker는 `--worktree path:<worktree>`로 시작하고 HEAD·clean 상태·setup과 receipt 경로를 확인합니다. pane split의 같은 tab 검사와 실패 시 탭 대체도 유지합니다.
+- gate는 attempt별 로그·계약·결과를 보존하고 [check-gate.py](scripts/check-gate.py)로 단계 실패, 필수 시험의 skip·미등록·미실행, SHA·계약·로그 불일치를 검출합니다. 필수 gate는 알려진 환경 실패 차감이나 미검증 승인으로 면제하지 않습니다. runner 출력 수집, 공유 자원 소유와 잠금, 안전한 적용 경계는 [통합 gate](references/integration-gate.md)에 있습니다. 이 검증기는 시험 실행기나 OS 잠금 도구가 아닙니다.
 - 모든 역할은 판단 근거를 리포트나 worker_done에 남겨서, 다음 단계가 검증할 수 있게 합니다.
+- 같은 Task에 세 번째 재작업이 필요하면 조정자가 지적 원장과 수용 조건부터 점검합니다. 새 blocker를 숨기지 않으며 기존 같은 사유 3회·최대 10회 에스컬레이션도 유지합니다.
 - Task가 2개 이하이고 전부 low면 하네스 없이 직접 진행할지 먼저 묻습니다.
 - 시작 전에 base checkout이 깨끗한지 확인하고, base가 main이면 경고합니다. tier worktree를 만들면 `setup_command`(의존성 설치)를 한 번 실행합니다. 새 프로젝트라 plan에 초기화가 없으면 `[high] scaffold` Task를 맨 앞에 넣습니다. 실패한 Task의 코드는 `harness/failed/<task_id>` 브랜치로 남깁니다.
 - tier마다 worker 1개로 시작해 ready Task가 쌓이면 `max_workers_per_tier`(기본 3)까지 늘립니다. 한 checkout에서는 실행 하나만 돌고(`.harness/state.json`의 status로 잠금), 여러 프로젝트를 병렬로 하려면 Orca worktree를 따로 만들어 각자 실행합니다.
@@ -34,6 +36,7 @@ An agent skill for [Orca](https://orca.app) orchestration: split requirement doc
 
 ## 요구 사항
 
+- 자동 gate 검증에는 Python 3.9 이상이 필요합니다. `check-gate.py`는 외부 패키지를 사용하지 않습니다.
 - Orca 1.4.205 이상. 이 스킬은 `orca terminal split`, `orca orchestration worker-start --terminal` 등 Orca CLI 위에서 동작합니다.
 - 역할에 배정할 agent CLI가 Orca를 실행하는 기기에 설치되고 로그인되어 있어야 합니다.
 - Windows에서는 PowerShell `Get-Command`로 설치 여부를 확인합니다. Git Bash의 `command -v`는 `.ps1` shim을 찾지 못합니다.
